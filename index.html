@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Entrar · Gestão de Mídias Sociais</title>
+  <link rel="icon" type="image/png" href="assets/logo.png" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <div class="login-wrap">
+    <div class="login-card">
+      <img src="assets/logo.png" alt="" style="height:32px; margin-bottom:14px;" />
+
+      <div id="passo-senha">
+        <h1>Gestão de Mídias Sociais</h1>
+        <p>Digite a senha de acesso da equipe.</p>
+        <form id="form-login">
+          <div class="field">
+            <label for="senha">Senha de acesso</label>
+            <input type="password" id="senha" required autocomplete="current-password" autofocus />
+          </div>
+          <button type="submit" class="btn btn-primary" style="width:100%;" id="btn-entrar">Entrar</button>
+          <p class="form-msg" id="msg"></p>
+        </form>
+      </div>
+
+      <div id="passo-token" style="display:none;">
+        <h1>Quase lá</h1>
+        <p>
+          Os dados ficam guardados num repositório do GitHub. Cole abaixo o
+          seu token pessoal de acesso (com permissão de escrita nesse
+          repositório) para liberar a leitura e o salvamento.
+        </p>
+        <form id="form-token">
+          <div class="field">
+            <label for="token">Token do GitHub</label>
+            <input type="password" id="token" required autocomplete="off" placeholder="ghp_... ou github_pat_..." />
+          </div>
+          <button type="submit" class="btn btn-primary" style="width:100%;" id="btn-salvar-token">Salvar e entrar</button>
+          <p class="form-msg" id="msg-token"></p>
+        </form>
+        <p style="font-size:12px; color:var(--text-secondary); margin-top:14px;">
+          Não tem um token ainda? Gere um em
+          <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">github.com/settings/personal-access-tokens/new</a>,
+          escolhendo o repositório de dados e a permissão "Contents: Read and
+          write". Ele fica guardado só neste navegador.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script>
+    const passoSenha = document.getElementById("passo-senha");
+    const passoToken = document.getElementById("passo-token");
+
+    function irParaDashboardOuToken() {
+      if (localStorage.getItem("github_token")) {
+        window.location.href = "dashboard.html";
+      } else {
+        passoSenha.style.display = "none";
+        passoToken.style.display = "block";
+        document.getElementById("token").focus();
+      }
+    }
+
+    // já entrou antes neste navegador? pula direto pro passo que falta
+    if (localStorage.getItem("equipe_autenticada") === "1") {
+      irParaDashboardOuToken();
+    }
+
+    document.getElementById("form-login").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const senha = document.getElementById("senha").value;
+      const msg = document.getElementById("msg");
+
+      if (!window.APP_CONFIG || !window.APP_CONFIG.TEAM_PASSWORD) {
+        msg.textContent = "Senha de acesso não configurada. Confira js/config.js.";
+        msg.className = "form-msg error";
+        return;
+      }
+
+      if (senha !== window.APP_CONFIG.TEAM_PASSWORD) {
+        msg.textContent = "Senha incorreta.";
+        msg.className = "form-msg error";
+        return;
+      }
+
+      localStorage.setItem("equipe_autenticada", "1");
+      irParaDashboardOuToken();
+    });
+
+    document.getElementById("form-token").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const token = document.getElementById("token").value.trim();
+      const msg = document.getElementById("msg-token");
+
+      if (!token) {
+        msg.textContent = "Cole o seu token do GitHub.";
+        msg.className = "form-msg error";
+        return;
+      }
+
+      localStorage.setItem("github_token", token);
+      window.location.href = "dashboard.html";
+    });
+  </script>
+</body>
+</html>

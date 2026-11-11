@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Painel · Gestão de Mídias Sociais</title>
+  <link rel="icon" type="image/png" href="assets/logo.png" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <div class="topbar">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <img src="assets/logo.png" alt="" style="height:28px;" />
+        <div>
+          <h1 id="saudacao">Olá</h1>
+          <p id="data-hoje" class="topbar-sub"></p>
+        </div>
+      </div>
+      <div class="user-tag" id="user-tag">Carregando...</div>
+    </div>
+
+    <div class="agenda-card">
+      <div class="agenda-calendar">
+        <div class="agenda-calendar-head">
+          <span id="calendar-mes"></span>
+        </div>
+        <div class="agenda-calendar-grid" id="calendar-grid"></div>
+      </div>
+      <div class="agenda-checklist">
+        <h2 class="agenda-checklist-title">Checklist de hoje</h2>
+        <div id="today-checklist">
+          <div class="empty-state">Carregando...</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-title">Clientes</div>
+    <div id="client-grid" class="client-grid">
+      <div class="empty-state">Carregando clientes...</div>
+    </div>
+
+    <div class="section-title">Adicionar cliente</div>
+    <button class="btn" id="btn-toggle-add">+ Novo cliente</button>
+    <div class="add-form" id="form-add-client">
+      <div class="grid-2">
+        <div class="field">
+          <label for="novo-nome">Nome do cliente</label>
+          <input type="text" id="novo-nome" placeholder="Ex: Cliente 01" />
+        </div>
+        <div class="field">
+          <label for="novo-cor">Cor do card</label>
+          <input type="color" id="novo-cor" value="#2a78d6" style="height:38px; padding:4px;" />
+        </div>
+      </div>
+      <button class="btn btn-primary" id="btn-salvar-cliente">Salvar cliente</button>
+      <p class="form-msg" id="msg-add-client"></p>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/githubClient.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/dashboard.js"></script>
+</body>
+</html>

@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cliente · Gestão de Mídias Sociais</title>
+  <link rel="icon" type="image/png" href="assets/logo.png" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <div class="topbar">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <img src="assets/logo.png" alt="" style="height:28px;" />
+        <div>
+          <a class="breadcrumb" href="dashboard.html">&larr; Painel</a>
+          <h1 id="client-title">Carregando...</h1>
+        </div>
+      </div>
+      <div class="user-tag" id="user-tag">Carregando...</div>
+    </div>
+
+    <div id="client-switcher" class="week-tabs" style="margin-top:0;"></div>
+
+    <div id="week-tabs" class="week-tabs"></div>
+    <div id="week-banner" class="week-banner" style="display:none;"></div>
+
+    <div id="block-grid" class="block-grid">
+      <div class="empty-state">Carregando...</div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" style="display:none;"></div>
+
+  <script src="js/config.js"></script>
+  <script src="js/githubClient.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/cliente.js"></script>
+</body>
+</html>
