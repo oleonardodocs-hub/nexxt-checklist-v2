@@ -1,20 +1,5 @@
 [
   {
-    "id": "8ad1dbb4-b7fe-44c6-bb0f-de90f1024e5c",
-    "created_at": "2026-11-11T23:53:40.526Z",
-    "client_id": "335b3cfa-ca27-4417-b962-36a8aebc0a43",
-    "week_id": "8e659b65-e1be-4dae-baa5-af89e8faa984",
-    "bloco": "segunda",
-    "titulo": "Post Institucional",
-    "descricao": "Link da demanda anexada",
-    "tipo_publicacao": "manual",
-    "responsavel_id": null,
-    "link": null,
-    "status": "pendente",
-    "data_publicacao": "2026-11-13",
-    "hora_publicacao": "10:30"
-  },
-  {
     "id": "357d3a28-52a7-47ae-a52c-7b5d9b15729c",
     "created_at": "2026-11-12T00:08:04.424Z",
     "client_id": "335b3cfa-ca27-4417-b962-36a8aebc0a43",
