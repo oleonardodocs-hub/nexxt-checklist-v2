@@ -155,14 +155,29 @@ function renderClientSwitcher() {
   el.innerHTML = estado.clients
     .map((c) => {
       const ativo = c.id === estado.clientId;
+      const cor = corClienteParaCSS(c.cor);
       return `
         <a class="week-tab ${ativo ? "active" : ""}" href="cliente.html?id=${c.id}"
-           style="${ativo ? "" : `border-color:${c.cor}55;`}">
-          <span class="tab-status-dot" style="background:${c.cor};"></span>${escapeHtml(c.nome)}
+           style="${ativo ? "" : `border-color:color-mix(in srgb, ${cor} 40%, transparent);`}">
+          <span class="tab-status-dot" style="background:${cor};"></span>${escapeHtml(c.nome)}
         </a>
       `;
     })
     .join("");
+
+  renderSwatches(document.getElementById("client-color-swatches"), estado.cliente ? estado.cliente.cor : null, atualizarCorCliente);
+}
+
+async function atualizarCorCliente(slot) {
+  const { error } = await window.supabaseClient.from("clients").update({ cor: slot }).eq("id", estado.clientId);
+  if (error) {
+    mostrarToast("Erro ao mudar a cor: " + error.message);
+    return;
+  }
+  estado.cliente.cor = slot;
+  const clienteNaLista = estado.clients.find((c) => c.id === estado.clientId);
+  if (clienteNaLista) clienteNaLista.cor = slot;
+  renderClientSwitcher();
 }
 
 // ------------------------------------------------------------------

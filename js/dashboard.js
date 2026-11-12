@@ -212,7 +212,7 @@ function renderClientes(clients, weeks, demandas, colaboradoresPorId) {
         : "Nenhuma semana criada ainda";
 
       return `
-        <a class="client-card" href="cliente.html?id=${cliente.id}" style="--client-color:${cliente.cor}">
+        <a class="client-card" href="cliente.html?id=${cliente.id}" style="--client-color:${corClienteParaCSS(cliente.cor)}">
           <div class="client-card-main">
             <div>
               <p class="client-name">${escapeHtml(cliente.nome)}</p>
@@ -270,7 +270,7 @@ function renderChecklistHoje(lista, diaHoje, colaboradoresPorId) {
         <div class="demanda-item">
           <div class="demanda-title">
             <span class="pill pill-${item.status}">${NOME_STATUS[item.status]}</span>
-            <span class="client-tag"><span class="tab-status-dot" style="background:${cliente.cor};"></span>${escapeHtml(cliente.nome)}</span>
+            <span class="client-tag"><span class="tab-status-dot" style="background:${corClienteParaCSS(cliente.cor)};"></span>${escapeHtml(cliente.nome)}</span>
             ${escapeHtml(item.titulo)}
           </div>
           ${item.descricao ? `<div class="demanda-meta" style="color:var(--text-secondary);">${escapeHtml(item.descricao)}</div>` : ""}
@@ -323,6 +323,10 @@ async function init() {
 
 document.getElementById("btn-toggle-add").addEventListener("click", () => {
   document.getElementById("form-add-client").classList.toggle("open");
+});
+
+renderSwatches(document.getElementById("novo-cor-swatches"), document.getElementById("novo-cor").value, (slot) => {
+  document.getElementById("novo-cor").value = slot;
 });
 
 document.getElementById("btn-salvar-cliente").addEventListener("click", async () => {

@@ -2,6 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8" />
+  <script>try{var t=localStorage.getItem("tema");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t);}catch(e){}</script>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Painel · Gestão de Mídias Sociais</title>
   <link rel="icon" type="image/png" href="assets/logo.png" />
@@ -49,8 +50,9 @@
           <input type="text" id="novo-nome" placeholder="Ex: Cliente 01" />
         </div>
         <div class="field">
-          <label for="novo-cor">Cor do card</label>
-          <input type="color" id="novo-cor" value="#2a78d6" style="height:38px; padding:4px;" />
+          <label>Cor do card</label>
+          <div class="swatch-row" id="novo-cor-swatches"></div>
+          <input type="hidden" id="novo-cor" value="violet" />
         </div>
       </div>
       <button class="btn btn-primary" id="btn-salvar-cliente">Salvar cliente</button>
@@ -61,6 +63,7 @@
   <script src="js/config.js"></script>
   <script src="js/githubClient.js"></script>
   <script src="js/auth.js"></script>
+  <script src="js/paleta.js"></script>
   <script src="js/dashboard.js"></script>
 </body>
 </html>

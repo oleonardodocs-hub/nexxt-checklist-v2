@@ -20,6 +20,32 @@ function sair() {
   window.location.href = "index.html";
 }
 
+// Tema claro/escuro: por padrão segue o sistema operacional de quem está
+// usando (por isso pode aparecer escuro sem ninguém ter escolhido isso).
+// Esse controle permite fixar um dos dois manualmente, guardado só no
+// navegador de cada pessoa.
+function temaEfetivo() {
+  const salvo = localStorage.getItem("tema");
+  if (salvo === "light" || salvo === "dark") return salvo;
+  return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
+function aplicarTema(tema) {
+  document.documentElement.setAttribute("data-theme", tema);
+}
+
+function alternarTema() {
+  const novo = temaEfetivo() === "dark" ? "light" : "dark";
+  localStorage.setItem("tema", novo);
+  aplicarTema(novo);
+  atualizarBotaoTema();
+}
+
+function atualizarBotaoTema() {
+  const btn = document.getElementById("btn-tema");
+  if (btn) btn.textContent = temaEfetivo() === "dark" ? "Modo claro" : "Modo escuro";
+}
+
 function configurarTokenGithub() {
   const atual = localStorage.getItem("github_token") || "";
   const novo = window.prompt(
@@ -43,11 +69,14 @@ function montarTopbarAcoes(elId) {
   if (el) {
     el.innerHTML = `
       <a class="btn btn-ghost" href="colaboradores.html" style="padding:4px 10px;">Equipe</a>
+      <button class="btn btn-ghost" id="btn-tema" style="padding:4px 10px;"></button>
       <button class="btn btn-ghost" id="btn-config-github" style="padding:4px 10px;">GitHub</button>
       <button class="btn btn-ghost" id="btn-logout" style="padding:4px 10px;">Sair</button>
     `;
     document.getElementById("btn-logout").addEventListener("click", sair);
     document.getElementById("btn-config-github").addEventListener("click", configurarTokenGithub);
+    document.getElementById("btn-tema").addEventListener("click", alternarTema);
+    atualizarBotaoTema();
   }
   return true;
 }

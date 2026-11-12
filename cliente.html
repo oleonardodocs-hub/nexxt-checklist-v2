@@ -2,6 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8" />
+  <script>try{var t=localStorage.getItem("tema");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t);}catch(e){}</script>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Cliente · Gestão de Mídias Sociais</title>
   <link rel="icon" type="image/png" href="assets/logo.png" />
@@ -15,6 +16,7 @@
         <div>
           <a class="breadcrumb" href="dashboard.html">&larr; Painel</a>
           <h1 id="client-title">Carregando...</h1>
+          <div class="swatch-row small" id="client-color-swatches" style="margin-top:6px;"></div>
         </div>
       </div>
       <div class="user-tag" id="user-tag">Carregando...</div>
@@ -35,6 +37,7 @@
   <script src="js/config.js"></script>
   <script src="js/githubClient.js"></script>
   <script src="js/auth.js"></script>
+  <script src="js/paleta.js"></script>
   <script src="js/cliente.js"></script>
 </body>
 </html>
