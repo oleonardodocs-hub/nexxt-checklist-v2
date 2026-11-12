@@ -13,5 +13,12 @@
     "client_id": "335b3cfa-ca27-4417-b962-36a8aebc0a43",
     "semana_inicio": "2026-11-16",
     "status": "disponivel"
+  },
+  {
+    "id": "ac051736-c97d-4cdd-9b43-d558991c6007",
+    "created_at": "2026-11-12T01:53:53.871Z",
+    "client_id": "335b3cfa-ca27-4417-b962-36a8aebc0a43",
+    "semana_inicio": "2026-11-23",
+    "status": "aguardando_validacao"
   }
 ]
