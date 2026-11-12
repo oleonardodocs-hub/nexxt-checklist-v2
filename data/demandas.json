@@ -25,10 +25,11 @@
     "tipo_publicacao": "manual",
     "responsavel_id": "f6065ba5-958f-4610-b7e1-848147defc5d",
     "link": "https://www.deezer.com/pt/album/15733014",
-    "status": "pendente",
+    "status": "publicada",
     "recorrente_id": null,
     "data_publicacao": "2026-11-12",
-    "hora_publicacao": "10:30"
+    "hora_publicacao": "10:30",
+    "updated_at": "2026-11-12T14:03:24.796Z"
   },
   {
     "id": "178f14d7-8fdb-4650-89b3-9008f48c3003",
