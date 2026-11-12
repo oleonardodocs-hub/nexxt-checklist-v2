@@ -43,5 +43,20 @@
     "status": "pendente",
     "data_publicacao": "2026-11-11",
     "hora_publicacao": "20:56"
+  },
+  {
+    "id": "a3ccb008-cf86-42ff-a5dc-a5f45891bd40",
+    "created_at": "2026-11-12T01:55:07.922Z",
+    "client_id": "335b3cfa-ca27-4417-b962-36a8aebc0a43",
+    "week_id": "ac051736-c97d-4cdd-9b43-d558991c6007",
+    "bloco": "segunda",
+    "titulo": "Validar campanha",
+    "descricao": "Otimização",
+    "tipo_publicacao": "manual",
+    "responsavel_id": "178246e0-62b9-4f6d-9cbb-ce732adab80d",
+    "link": null,
+    "status": "pendente",
+    "data_publicacao": "2026-11-11",
+    "hora_publicacao": "20:56"
   }
 ]
