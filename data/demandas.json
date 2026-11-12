@@ -41,9 +41,10 @@
     "tipo_publicacao": "manual",
     "responsavel_id": "178246e0-62b9-4f6d-9cbb-ce732adab80d",
     "link": null,
-    "status": "pendente",
+    "status": "publicada",
     "data_publicacao": "2026-11-11",
-    "hora_publicacao": "20:56"
+    "hora_publicacao": "20:56",
+    "updated_at": "2026-11-12T01:58:06.870Z"
   },
   {
     "id": "a3ccb008-cf86-42ff-a5dc-a5f45891bd40",
