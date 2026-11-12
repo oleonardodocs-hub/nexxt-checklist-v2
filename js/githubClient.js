@@ -71,7 +71,10 @@
     if (cache[tabela]) return cache[tabela];
 
     const url = `https://api.github.com/repos/${OWNER}/${REPO}/contents/${PASTA_DADOS}/${tabela}.json?ref=${encodeURIComponent(BRANCH)}`;
-    const res = await fetch(url, { headers: apiHeaders() });
+    // "no-store" evita que o navegador devolva uma resposta antiga em cache
+    // pra essa mesma URL (o que faria a gente tentar de novo com o sha
+    // desatualizado e cair sempre no mesmo erro 409).
+    const res = await fetch(url, { headers: apiHeaders(), cache: "no-store" });
 
     if (res.status === 404) {
       cache[tabela] = { rows: [], sha: null };
@@ -117,9 +120,10 @@
         return { error: null };
       }
 
-      if (res.status === 409 && tentativa < 2) {
+      if (res.status === 409) {
         delete cache[tabela]; // alguém mexeu antes, relê e tenta de novo
-        continue;
+        if (tentativa < 2) continue;
+        return { error: { message: "Alguém mais salvou uma mudança bem na mesma hora. Tente de novo." } };
       }
 
       if (res.status === 401 || res.status === 403) {

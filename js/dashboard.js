@@ -267,7 +267,7 @@ function renderChecklistHoje(lista, diaHoje, colaboradoresPorId) {
     '<div class="today-wrap">' +
     lista
       .map(({ cliente, item }) => `
-        <div class="demanda-item">
+        <div class="demanda-item" style="--item-accent:${ACCENT_POR_STATUS[item.status] || "var(--border-hairline)"}">
           <div class="demanda-title">
             <span class="pill pill-${item.status}">${NOME_STATUS[item.status]}</span>
             <span class="client-tag"><span class="tab-status-dot" style="background:${corClienteParaCSS(cliente.cor)};"></span>${escapeHtml(cliente.nome)}</span>

@@ -336,47 +336,12 @@ function renderBlockCard({ bloco, titulo, weekId, itens }) {
     <div class="block-card" data-bloco="${bloco}" data-week-id="${weekId || ""}">
       <h3>${titulo} <span class="block-count">${feitos}/${itens.length}</span></h3>
 
-      ${itens.map((item) => renderDemandaItem(item)).join("") || '<p style="font-size:12px; color:var(--text-muted);">Nenhuma tarefa ainda.</p>'}
+      ${itens.map((item) => renderDemandaItem(item, isPacote)).join("") || '<p style="font-size:12px; color:var(--text-muted);">Nenhuma tarefa ainda.</p>'}
 
       <button class="btn btn-ghost" style="margin-top:10px; width:100%;" data-acao="abrir-form" data-bloco="${bloco}" data-week-id="${weekId || ""}">+ Adicionar tarefa</button>
 
       <div class="add-form" data-form-bloco="${bloco}" data-form-week="${weekId || ""}">
-        <div class="field">
-          <label>Tarefa</label>
-          <input type="text" class="input-titulo" placeholder="Ex: Subir post feed" />
-        </div>
-        <div class="field">
-          <label>Descrição (o que é e como deve ser feito)</label>
-          <textarea class="input-descricao" rows="2" placeholder="Opcional"></textarea>
-        </div>
-        <div class="grid-2">
-          <div class="field">
-            <label>Tipo de publicação</label>
-            <select class="input-tipo">
-              <option value="agendada">Agendada</option>
-              <option value="manual">Manual (subir na hora)</option>
-            </select>
-          </div>
-          <div class="field">
-            <label>Responsável</label>
-            <select class="input-responsavel">
-              <option value="">Sem responsável definido</option>
-              ${estado.colaboradores.map((c) => `<option value="${c.id}">${escapeHtml(c.nome)}${c.funcao ? ` (${escapeHtml(c.funcao)})` : ""}</option>`).join("")}
-            </select>
-          </div>
-        </div>
-        <div class="field">
-          <label>Link (arte pronta no CRM)</label>
-          <input type="url" class="input-link" placeholder="https://..." />
-        </div>
-        ${
-          isPacote
-            ? `<div class="field"><label>Prazo do pacote</label><input type="date" class="input-prazo" /></div>`
-            : `<div class="grid-2">
-                <div class="field"><label>Data</label><input type="date" class="input-data" /></div>
-                <div class="field"><label>Hora</label><input type="time" class="input-hora" /></div>
-              </div>`
-        }
+        ${camposTarefaHTML(isPacote, null)}
         <button class="btn btn-primary" data-acao="salvar-tarefa" data-bloco="${bloco}" data-week-id="${weekId || ""}">Salvar tarefa</button>
         <button class="btn btn-ghost" data-acao="fechar-form" data-bloco="${bloco}" data-week-id="${weekId || ""}">Cancelar</button>
       </div>
@@ -384,15 +349,68 @@ function renderBlockCard({ bloco, titulo, weekId, itens }) {
   `;
 }
 
-function renderDemandaItem(item) {
+// Campos do formulário de tarefa, reaproveitados tanto para adicionar uma
+// tarefa nova (item = null) quanto para editar uma já existente (item
+// preenchido, pré-seleciona os valores atuais).
+function camposTarefaHTML(isPacote, item) {
+  item = item || {};
+  const tipo = item.tipo_publicacao || "agendada";
+  const horaVal = item.hora_publicacao ? item.hora_publicacao.slice(0, 5) : "";
+
+  return `
+    <div class="field">
+      <label>Tarefa</label>
+      <input type="text" class="input-titulo" placeholder="Ex: Subir post feed" value="${escapeHtml(item.titulo || "")}" />
+    </div>
+    <div class="field">
+      <label>Descrição (o que é e como deve ser feito)</label>
+      <textarea class="input-descricao" rows="2" placeholder="Opcional">${escapeHtml(item.descricao || "")}</textarea>
+    </div>
+    <div class="grid-2">
+      <div class="field">
+        <label>Tipo de publicação</label>
+        <select class="input-tipo">
+          <option value="agendada" ${tipo === "agendada" ? "selected" : ""}>Agendada</option>
+          <option value="manual" ${tipo === "manual" ? "selected" : ""}>Manual (subir na hora)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Responsável</label>
+        <select class="input-responsavel">
+          <option value="">Sem responsável definido</option>
+          ${estado.colaboradores
+            .map((c) => `<option value="${c.id}" ${c.id === item.responsavel_id ? "selected" : ""}>${escapeHtml(c.nome)}${c.funcao ? ` (${escapeHtml(c.funcao)})` : ""}</option>`)
+            .join("")}
+          <option value="__novo__">+ Novo colaborador...</option>
+        </select>
+      </div>
+    </div>
+    <div class="field">
+      <label>Link (arte pronta no CRM)</label>
+      <input type="url" class="input-link" placeholder="https://..." value="${escapeHtml(item.link || "")}" />
+    </div>
+    ${
+      isPacote
+        ? `<div class="field"><label>Prazo do pacote</label><input type="date" class="input-prazo" value="${item.prazo_pacote || ""}" /></div>`
+        : `<div class="grid-2">
+            <div class="field"><label>Data</label><input type="date" class="input-data" value="${item.data_publicacao || ""}" /></div>
+            <div class="field"><label>Hora</label><input type="time" class="input-hora" value="${horaVal}" /></div>
+          </div>`
+    }
+  `;
+}
+
+function renderDemandaItem(item, isPacote) {
   const metaBits = [];
   if (item.tipo_publicacao === "manual") metaBits.push("Manual");
   if (item.data_publicacao) metaBits.push(formatarDataCurta(item.data_publicacao) + (item.hora_publicacao ? " " + item.hora_publicacao.slice(0, 5) : ""));
   if (item.prazo_pacote) metaBits.push("Prazo: " + formatarDataCurta(item.prazo_pacote));
   if (item.link) metaBits.push(`<a href="${escapeHtml(item.link)}" target="_blank" rel="noopener">Ver arte</a>`);
 
+  const accent = window.ACCENT_POR_STATUS[item.status] || "var(--border-hairline)";
+
   return `
-    <div class="demanda-item" data-id="${item.id}">
+    <div class="demanda-item" data-id="${item.id}" style="--item-accent:${accent}">
       <div class="demanda-title">
         <span class="pill pill-${item.status}">${NOME_STATUS[item.status]}</span>
         ${escapeHtml(item.titulo)}
@@ -410,8 +428,16 @@ function renderDemandaItem(item) {
           ${estado.colaboradores
             .map((c) => `<option value="${c.id}" ${c.id === item.responsavel_id ? "selected" : ""}>${escapeHtml(c.nome)}</option>`)
             .join("")}
+          <option value="__novo__">+ Novo colaborador...</option>
         </select>
+        <button class="btn btn-ghost" data-acao="editar-tarefa" data-id="${item.id}">Editar</button>
         <button class="btn btn-ghost" data-acao="excluir-tarefa" data-id="${item.id}" style="margin-left:auto;">Excluir</button>
+      </div>
+
+      <div class="add-form" data-edit-form="${item.id}">
+        ${camposTarefaHTML(isPacote, item)}
+        <button class="btn btn-primary" data-acao="salvar-edicao" data-id="${item.id}">Salvar alterações</button>
+        <button class="btn btn-ghost" data-acao="fechar-edicao" data-id="${item.id}">Cancelar</button>
       </div>
     </div>
   `;
@@ -438,17 +464,92 @@ function ligarEventosDoGrid() {
     btn.addEventListener("click", () => salvarTarefa(btn.dataset.bloco, btn.dataset.weekId || null));
   });
 
+  grid.querySelectorAll('[data-acao="editar-tarefa"]').forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const item = grid.querySelector(`.demanda-item[data-id="${btn.dataset.id}"]`);
+      item.querySelector(`[data-edit-form="${btn.dataset.id}"]`).classList.toggle("open");
+    });
+  });
+
+  grid.querySelectorAll('[data-acao="fechar-edicao"]').forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const item = grid.querySelector(`.demanda-item[data-id="${btn.dataset.id}"]`);
+      item.querySelector(`[data-edit-form="${btn.dataset.id}"]`).classList.remove("open");
+    });
+  });
+
+  grid.querySelectorAll('[data-acao="salvar-edicao"]').forEach((btn) => {
+    btn.addEventListener("click", () => salvarEdicaoTarefa(btn.dataset.id));
+  });
+
   grid.querySelectorAll(".select-status").forEach((sel) => {
     sel.addEventListener("change", () => atualizarStatus(sel.dataset.id, sel.value));
   });
 
-  grid.querySelectorAll(".select-responsavel").forEach((sel) => {
-    sel.addEventListener("change", () => atualizarResponsavel(sel.dataset.id, sel.value || null));
-  });
+  grid.querySelectorAll(".select-responsavel, .input-responsavel").forEach(configurarSelectResponsavel);
 
   grid.querySelectorAll('[data-acao="excluir-tarefa"]').forEach((btn) => {
     btn.addEventListener("click", () => excluirTarefa(btn.dataset.id));
   });
+}
+
+// Fica de olho nos seletores de "Responsável" (tanto o rápido, de cada
+// card, quanto o de dentro dos formulários de adicionar/editar tarefa) pra
+// tratar a opção "+ Novo colaborador...": cria o colaborador na hora, sem
+// precisar sair da tarefa pra ir em "Equipe" cadastrar antes.
+function configurarSelectResponsavel(sel) {
+  sel.dataset.valorAnterior = sel.value;
+  sel.addEventListener("change", async () => {
+    if (sel.value !== "__novo__") {
+      sel.dataset.valorAnterior = sel.value;
+      if (sel.classList.contains("select-responsavel")) {
+        atualizarResponsavel(sel.dataset.id, sel.value || null);
+      }
+      return;
+    }
+
+    const idAnterior = sel.dataset.valorAnterior || "";
+    const novoId = await criarColaboradorInline();
+    sel.value = novoId || idAnterior;
+    sel.dataset.valorAnterior = sel.value;
+
+    if (novoId && sel.classList.contains("select-responsavel")) {
+      atualizarResponsavel(sel.dataset.id, novoId);
+    }
+  });
+}
+
+// Cadastra um colaborador sem sair da tela do cliente e já soma a opção
+// nova em toda select de responsável visível na tela (os formulários
+// abertos continuam com o que a pessoa já tinha digitado).
+async function criarColaboradorInline() {
+  const nome = (window.prompt("Nome do novo colaborador:") || "").trim();
+  if (!nome) return null;
+  const funcao = (window.prompt("Função (opcional):") || "").trim();
+
+  const { data, error } = await window.supabaseClient
+    .from("colaboradores")
+    .insert({ nome, funcao: funcao || null, ativo: true });
+
+  if (error) {
+    mostrarToast("Erro ao criar colaborador: " + error.message);
+    return null;
+  }
+
+  const novo = data[0];
+  estado.colaboradores.push(novo);
+
+  document.querySelectorAll(".input-responsavel, .select-responsavel").forEach((sel) => {
+    const opcao = document.createElement("option");
+    opcao.value = novo.id;
+    opcao.textContent = novo.nome + (novo.funcao ? ` (${novo.funcao})` : "");
+    const opcaoNovo = sel.querySelector('option[value="__novo__"]');
+    if (opcaoNovo) sel.insertBefore(opcao, opcaoNovo);
+    else sel.appendChild(opcao);
+  });
+
+  mostrarToast("Colaborador adicionado.");
+  return novo.id;
 }
 
 async function salvarTarefa(bloco, weekId) {
@@ -485,6 +586,41 @@ async function salvarTarefa(bloco, weekId) {
   }
 
   mostrarToast("Tarefa adicionada.");
+  await carregarSemanasEDemandas();
+  renderWeekTabs();
+}
+
+async function salvarEdicaoTarefa(id) {
+  const item = document.querySelector(`.demanda-item[data-id="${id}"]`);
+  const form = item.querySelector(`[data-edit-form="${id}"]`);
+  const titulo = form.querySelector(".input-titulo").value.trim();
+  if (!titulo) {
+    mostrarToast("Dê um nome para a tarefa.");
+    return;
+  }
+
+  const payload = {
+    titulo,
+    descricao: form.querySelector(".input-descricao").value.trim() || null,
+    tipo_publicacao: form.querySelector(".input-tipo").value,
+    responsavel_id: form.querySelector(".input-responsavel").value || null,
+    link: form.querySelector(".input-link").value.trim() || null,
+  };
+
+  const inputData = form.querySelector(".input-data");
+  const inputHora = form.querySelector(".input-hora");
+  const inputPrazo = form.querySelector(".input-prazo");
+  if (inputData) payload.data_publicacao = inputData.value || null;
+  if (inputHora) payload.hora_publicacao = inputHora.value || null;
+  if (inputPrazo) payload.prazo_pacote = inputPrazo.value || null;
+
+  const { error } = await window.supabaseClient.from("demandas").update(payload).eq("id", id);
+  if (error) {
+    mostrarToast("Erro ao salvar: " + error.message);
+    return;
+  }
+
+  mostrarToast("Tarefa atualizada.");
   await carregarSemanasEDemandas();
   renderWeekTabs();
 }

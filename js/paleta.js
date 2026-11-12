@@ -24,6 +24,19 @@ function corClienteParaCSS(valor) {
   return `var(--cat-${valor})`;
 }
 
+// Cor de destaque (barrinha lateral + leve tingimento do fundo) de cada
+// card de tarefa, de acordo com o status. Reaproveita os mesmos tokens de
+// cor já usados nas pills de status, só que também no corpo do card.
+window.ACCENT_POR_STATUS = {
+  pendente: "var(--accent)",
+  em_producao: "var(--accent)",
+  agendada: "var(--accent)",
+  aguardando_validacao: "var(--status-warning)",
+  manual_pendente: "var(--status-serious)",
+  validada: "var(--status-good)",
+  publicada: "var(--status-good)",
+};
+
 // Desenha a fileira de bolinhas de cor dentro de `container` e devolve o slot
 // escolhido via `aoEscolher(slot)`. `valorAtual` marca a bolinha já selecionada.
 function renderSwatches(container, valorAtual, aoEscolher) {
