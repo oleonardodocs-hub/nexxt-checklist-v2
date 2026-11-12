@@ -20,7 +20,9 @@ async function carregarColaboradores() {
   const el = document.getElementById("lista-colaboradores");
 
   if (error) {
-    el.innerHTML = '<div class="empty-state">Não foi possível carregar a equipe. Confira js/config.js e o schema do Supabase.</div>';
+    console.error(error);
+    el.innerHTML = htmlErroDeCarregamento(error.message);
+    ligarBotaoCorrigirToken();
     return;
   }
 

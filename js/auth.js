@@ -46,6 +46,60 @@ function atualizarBotaoTema() {
   if (btn) btn.textContent = temaEfetivo() === "dark" ? "Modo claro" : "Modo escuro";
 }
 
+// Traduz o erro técnico que vem do GitHub (ou de falha de rede/conexão)
+// numa explicação que ajuda a resolver, em vez de um aviso genérico. Usada
+// sempre que uma tela não consegue carregar os dados (painel, cliente,
+// equipe), pra não deixar a pessoa sem saber o que fazer.
+function explicarErroDeCarregamento(mensagem) {
+  const msg = mensagem || "";
+  if (/401|403|Bad credentials/i.test(msg)) {
+    return {
+      titulo: "Seu token do GitHub expirou ou perdeu a permissão de escrita.",
+      detalhe: "Tokens do GitHub vencem depois de um tempo. Clique no botão abaixo pra colar um token novo.",
+      mostrarBotaoToken: true,
+    };
+  }
+  if (/Failed to fetch|NetworkError|network/i.test(msg)) {
+    return {
+      titulo: "Não foi possível conectar ao GitHub.",
+      detalhe: "Confira sua internet e tente de novo em alguns instantes.",
+      mostrarBotaoToken: false,
+    };
+  }
+  if (/404/.test(msg)) {
+    return {
+      titulo: "Repositório de dados não encontrado.",
+      detalhe: "Confira se GITHUB_OWNER e GITHUB_REPO em js/config.js estão certos.",
+      mostrarBotaoToken: false,
+    };
+  }
+  return {
+    titulo: "Não foi possível carregar os dados.",
+    detalhe: msg || "Erro desconhecido.",
+    mostrarBotaoToken: false,
+  };
+}
+
+// HTML pronto pra colocar no lugar da lista quando o carregamento falha.
+function htmlErroDeCarregamento(mensagem) {
+  const info = explicarErroDeCarregamento(mensagem);
+  return `
+    <div class="empty-state erro-carregamento">
+      <p class="erro-titulo">${info.titulo}</p>
+      <p class="erro-detalhe">${info.detalhe}</p>
+      ${info.mostrarBotaoToken ? '<button class="btn btn-primary" id="btn-corrigir-token" style="margin-top:10px;">Colar token novo</button>' : ""}
+    </div>
+  `;
+}
+
+// Liga o botão "Colar token novo" que vem junto do HTML acima (se a tela
+// que chamou htmlErroDeCarregamento não tiver mostrado esse botão, não faz
+// nada, então é seguro chamar sempre).
+function ligarBotaoCorrigirToken() {
+  const btn = document.getElementById("btn-corrigir-token");
+  if (btn) btn.addEventListener("click", configurarTokenGithub);
+}
+
 function configurarTokenGithub() {
   const atual = localStorage.getItem("github_token") || "";
   const novo = window.prompt(

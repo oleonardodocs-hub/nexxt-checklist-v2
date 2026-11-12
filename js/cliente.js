@@ -103,11 +103,28 @@ async function carregarTudo() {
     return;
   }
 
-  const [{ data: clients }, { data: cliente }, { data: colaboradores }] = await Promise.all([
+  const [
+    { data: clients, error: errClients },
+    { data: cliente, error: errCliente },
+    { data: colaboradores, error: errColaboradores },
+  ] = await Promise.all([
     window.supabaseClient.from("clients").select("*").eq("ativo", true).order("nome"),
     window.supabaseClient.from("clients").select("*").eq("id", estado.clientId).single(),
     window.supabaseClient.from("colaboradores").select("*").eq("ativo", true).order("nome"),
   ]);
+
+  // "Registro não encontrado" é o .single() avisando que esse id de
+  // cliente não existe (link velho, cliente excluído) -- isso é diferente
+  // de um erro de verdade (token vencido, sem internet etc.), que precisa
+  // de uma explicação melhor do que só "cliente não encontrado".
+  const erroDeVerdade = errClients || errColaboradores || (errCliente && errCliente.message !== "Registro não encontrado" ? errCliente : null);
+  if (erroDeVerdade) {
+    console.error(erroDeVerdade);
+    document.getElementById("client-title").textContent = "Erro ao carregar";
+    document.getElementById("block-grid").innerHTML = htmlErroDeCarregamento(erroDeVerdade.message);
+    ligarBotaoCorrigirToken();
+    return;
+  }
 
   estado.clients = clients || [];
   estado.cliente = cliente;

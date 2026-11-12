@@ -433,6 +433,15 @@ a { color: inherit; }
   padding: 48px 20px;
   color: var(--text-secondary);
 }
+.erro-carregamento .erro-titulo {
+  font-weight: 700;
+  color: var(--status-critical);
+  margin: 0 0 6px;
+}
+.erro-carregamento .erro-detalhe {
+  font-size: 13px;
+  margin: 0;
+}
 
 /* ---------- Client detail page ---------- */
 .breadcrumb {

@@ -117,9 +117,11 @@ async function carregarDados() {
   ]);
 
   if (errClients || errWeeks || errDemandas || errColaboradores) {
-    console.error(errClients || errWeeks || errDemandas || errColaboradores);
-    document.getElementById("client-grid").innerHTML =
-      '<div class="empty-state">Não foi possível carregar os dados. Confira js/config.js e o schema do Supabase.</div>';
+    const erro = errClients || errWeeks || errDemandas || errColaboradores;
+    console.error(erro);
+    document.getElementById("client-grid").innerHTML = htmlErroDeCarregamento(erro.message);
+    document.getElementById("today-checklist").innerHTML = "";
+    ligarBotaoCorrigirToken();
     return;
   }
 
