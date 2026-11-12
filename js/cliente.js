@@ -18,6 +18,8 @@ const NOME_STATUS = {
   manual_pendente: "Publicação manual pendente",
   publicada: "Publicada",
 };
+const NOME_DIA_LONGO = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
+const NOME_MES = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
 
 let estado = {
   clientId: null,
@@ -26,7 +28,8 @@ let estado = {
   weeks: [],
   demandas: [],
   colaboradores: [],
-  weekTabSelecionada: null, // id da semana, ou "pacote"
+  weekTabSelecionada: null, // id da semana, "pacote" ou "historico"
+  historicoMes: null, // "AAAA-MM" selecionado dentro do Histórico
 };
 
 function segundaFeiraDe(date) {
@@ -53,6 +56,26 @@ function formatarDataCurta(isoDate) {
   if (!isoDate) return "";
   const [ano, mes, dia] = isoDate.split("-");
   return `${dia}/${mes}`;
+}
+function formatarDataLonga(isoDate) {
+  const d = new Date(isoDate + "T00:00:00");
+  return `${NOME_DIA_LONGO[d.getDay()]}, ${formatarDataCurta(isoDate)}`;
+}
+function formatarMesAno(mesStr) {
+  const [ano, mes] = mesStr.split("-").map(Number);
+  return `${NOME_MES[mes - 1]} de ${ano}`;
+}
+function somarMes(mesStr, delta) {
+  const [ano, mes] = mesStr.split("-").map(Number);
+  const d = new Date(ano, mes - 1 + delta, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+// Uma semana "passada" (já virou a sexta-feira dela) some da fileira
+// principal de abas e cai automaticamente no Histórico, agrupada pelo mês
+// da própria data -- sem precisar de nenhum status novo nem passo manual.
+function semanaPassada(semana) {
+  const fimSemana = addDias(semana.semana_inicio, 4);
+  return fimSemana < toISODate(new Date());
 }
 function escapeHtml(str) {
   const div = document.createElement("div");
@@ -126,14 +149,21 @@ async function carregarSemanasEDemandas() {
 
 // garante que sempre exista 1 semana "aguardando_validacao" e 1 "disponivel" à frente
 async function garantirProximasSemanas() {
-  const naoConcluidas = estado.weeks.filter((w) => w.status !== "concluida");
+  // só conta o que já existe se ainda não passou -- senão, depois de um
+  // tempo sem abrir o sistema, a tela ficaria sem nenhuma semana ativa
+  // agora que as passadas somem da fileira principal (foram pro Histórico).
+  const naoConcluidas = estado.weeks.filter((w) => w.status !== "concluida" && !semanaPassada(w));
   const temAguardando = naoConcluidas.some((w) => w.status === "aguardando_validacao");
   const temDisponivel = naoConcluidas.some((w) => w.status === "disponivel");
 
   if (temAguardando && temDisponivel) return;
 
+  const segundaAtual = toISODate(segundaFeiraDe(new Date()));
   const ultima = [...estado.weeks].sort((a, b) => (a.semana_inicio < b.semana_inicio ? 1 : -1))[0];
-  let proxima = ultima ? addDias(ultima.semana_inicio, 7) : toISODate(segundaFeiraDe(new Date()));
+  // nunca continua a partir de uma semana que já ficou pra trás -- sempre
+  // avança a partir de hoje nesse caso, pra não nascer uma semana "nova"
+  // já atrasada.
+  let proxima = ultima && ultima.semana_inicio >= segundaAtual ? addDias(ultima.semana_inicio, 7) : segundaAtual;
 
   const novas = [];
   if (!temAguardando) {
@@ -197,7 +227,11 @@ const DOT_POR_STATUS = {
 
 function renderWeekTabs() {
   const el = document.getElementById("week-tabs");
-  const semanas = [...estado.weeks].sort((a, b) => (a.semana_inicio < b.semana_inicio ? -1 : 1));
+  // A fileira principal só mostra a semana atual e as futuras -- as que já
+  // passaram saem daqui sozinhas e ficam acessíveis pelo Histórico, por mês.
+  const semanas = [...estado.weeks]
+    .filter((w) => !semanaPassada(w))
+    .sort((a, b) => (a.semana_inicio < b.semana_inicio ? -1 : 1));
 
   const tabsSemana = semanas
     .map((w) => {
@@ -218,7 +252,13 @@ function renderWeekTabs() {
     </button>
   `;
 
-  el.innerHTML = tabsSemana + tabPacote;
+  const tabHistorico = `
+    <button class="week-tab ${estado.weekTabSelecionada === "historico" ? "active" : ""}" data-week-id="historico">
+      Histórico
+    </button>
+  `;
+
+  el.innerHTML = tabsSemana + tabPacote + tabHistorico;
 
   el.querySelectorAll("[data-week-id]").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -235,6 +275,11 @@ function renderWeekTabs() {
 
 function renderWeekBanner() {
   const banner = document.getElementById("week-banner");
+
+  if (estado.weekTabSelecionada === "historico") {
+    banner.style.display = "none";
+    return;
+  }
 
   if (estado.weekTabSelecionada === "pacote") {
     banner.style.display = "flex";
@@ -303,6 +348,21 @@ async function validarSemana(weekId) {
 function renderBlocks() {
   const grid = document.getElementById("block-grid");
 
+  if (estado.weekTabSelecionada === "historico") {
+    grid.innerHTML = renderHistorico();
+    const card = grid.querySelector(".historico-card");
+    card.querySelector('[data-acao="historico-anterior"]').addEventListener("click", () => {
+      estado.historicoMes = somarMes(estado.historicoMes, -1);
+      renderBlocks();
+    });
+    card.querySelector('[data-acao="historico-proximo"]').addEventListener("click", () => {
+      estado.historicoMes = somarMes(estado.historicoMes, 1);
+      renderBlocks();
+    });
+    ligarEventosDoGrid();
+    return;
+  }
+
   if (estado.weekTabSelecionada === "pacote") {
     grid.innerHTML = renderBlockCard({
       bloco: "datas_comemorativas",
@@ -350,6 +410,61 @@ function renderBlockCard({ bloco, titulo, weekId, semana, itens }) {
         <button class="btn btn-primary" data-acao="salvar-tarefa" data-bloco="${bloco}" data-week-id="${weekId || ""}">Salvar tarefa</button>
         <button class="btn btn-ghost" data-acao="fechar-form" data-bloco="${bloco}" data-week-id="${weekId || ""}">Cancelar</button>
       </div>
+    </div>
+  `;
+}
+
+// Histórico: compila tudo que já foi feito (ou estava previsto) em cada
+// mês, de qualquer semana -- usa só a data efetiva de cada tarefa, que já
+// existe, então não precisa de nenhum campo novo nem de "arquivar" nada à
+// mão: assim que o mês vira, as tarefas dele já aparecem aqui agrupadas.
+function renderHistorico() {
+  if (!estado.historicoMes) estado.historicoMes = toISODate(new Date()).slice(0, 7);
+  const mes = estado.historicoMes;
+
+  const semanaPorId = {};
+  estado.weeks.forEach((w) => (semanaPorId[w.id] = w));
+
+  const itensDoMes = estado.demandas
+    .map((item) => {
+      const isPacote = item.bloco === "datas_comemorativas";
+      const semana = item.week_id ? semanaPorId[item.week_id] : null;
+      const dataEf = isPacote ? item.prazo_pacote || item.data_publicacao : dataEfetivaDaTarefa(item, semana);
+      return { item, semana, isPacote, dataEf };
+    })
+    .filter((x) => x.dataEf && x.dataEf.slice(0, 7) === mes)
+    .sort((a, b) => (a.dataEf < b.dataEf ? -1 : a.dataEf > b.dataEf ? 1 : 0));
+
+  const porDia = {};
+  itensDoMes.forEach((x) => {
+    (porDia[x.dataEf] = porDia[x.dataEf] || []).push(x);
+  });
+  const diasOrdenados = Object.keys(porDia).sort();
+
+  const totalItens = itensDoMes.length;
+  const totalPublicadas = itensDoMes.filter((x) => x.item.status === "publicada").length;
+
+  const corpo = diasOrdenados.length
+    ? diasOrdenados
+        .map(
+          (dia) => `
+            <div class="historico-dia">
+              <h4>${formatarDataLonga(dia)}</h4>
+              ${porDia[dia].map((x) => renderDemandaItem(x.item, x.isPacote, x.semana)).join("")}
+            </div>
+          `
+        )
+        .join("")
+    : '<p class="empty-state">Nenhuma tarefa neste mês.</p>';
+
+  return `
+    <div class="block-card historico-card">
+      <div class="historico-nav">
+        <button class="btn btn-ghost" data-acao="historico-anterior" title="Mês anterior">‹</button>
+        <h3>${formatarMesAno(mes)} <span class="block-count">${totalPublicadas}/${totalItens} publicadas</span></h3>
+        <button class="btn btn-ghost" data-acao="historico-proximo" title="Próximo mês">›</button>
+      </div>
+      ${corpo}
     </div>
   `;
 }

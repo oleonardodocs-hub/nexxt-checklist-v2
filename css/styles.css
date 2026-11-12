@@ -508,6 +508,44 @@ a { color: inherit; }
   font-weight: 400;
 }
 
+.historico-card {
+  grid-column: 1 / -1;
+}
+.historico-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.historico-nav h3 {
+  margin: 0;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 220px;
+  justify-content: center;
+}
+.historico-nav .btn-ghost {
+  font-size: 16px;
+  line-height: 1;
+  padding: 6px 12px;
+}
+.historico-dia {
+  margin-bottom: 20px;
+}
+.historico-dia:last-child {
+  margin-bottom: 0;
+}
+.historico-dia h4 {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  margin: 0 0 8px;
+}
+
 .demanda-item {
   border: 1px solid var(--border-hairline);
   border-left: 3px solid color-mix(in srgb, var(--client-color, var(--accent)) 55%, transparent);
