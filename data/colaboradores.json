@@ -1,12 +1,5 @@
 [
   {
-    "id": "178246e0-62b9-4f6d-9cbb-ce732adab80d",
-    "created_at": "2026-11-12T01:54:41.524Z",
-    "nome": "Jorge",
-    "funcao": "Redator",
-    "ativo": true
-  },
-  {
     "id": "f6065ba5-958f-4610-b7e1-848147defc5d",
     "created_at": "2026-11-12T13:04:27.088Z",
     "nome": "Gustavo",
