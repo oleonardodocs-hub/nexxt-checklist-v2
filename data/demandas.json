@@ -57,9 +57,10 @@
     "tipo_publicacao": "agendada",
     "responsavel_id": "f6065ba5-958f-4610-b7e1-848147defc5d",
     "link": null,
-    "status": "pendente",
+    "status": "publicada",
     "recorrente_id": null,
     "data_publicacao": "2026-11-12",
-    "hora_publicacao": "16:00"
+    "hora_publicacao": "16:00",
+    "updated_at": "2026-11-12T14:03:19.496Z"
   }
 ]
