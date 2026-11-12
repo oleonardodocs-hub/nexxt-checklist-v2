@@ -129,11 +129,17 @@ async function carregarDados() {
   renderClientes(clients || [], weeks || [], demandas || [], colaboradoresPorId);
 }
 
+// Guarda a última lista calculada do checklist, pra dar pra atualizar só os
+// selos de horário (contagem regressiva) de minuto em minuto sem precisar
+// buscar tudo de novo no GitHub.
+let ultimoChecklist = null;
+
 function renderClientes(clients, weeks, demandas, colaboradoresPorId) {
   const grid = document.getElementById("client-grid");
 
   if (clients.length === 0) {
     grid.innerHTML = '<div class="empty-state">Nenhum cliente cadastrado ainda. Use o botão "+ Novo cliente" abaixo.</div>';
+    ultimoChecklist = { lista: [], diaHoje: null, colaboradoresPorId: colaboradoresPorId || {} };
     renderChecklistHoje([], null, colaboradoresPorId || {});
     return;
   }
@@ -251,6 +257,7 @@ function renderClientes(clients, weeks, demandas, colaboradoresPorId) {
     })
     .join("");
 
+  ultimoChecklist = { lista: checklistHoje, diaHoje, colaboradoresPorId };
   renderChecklistHoje(checklistHoje, diaHoje, colaboradoresPorId);
 }
 
@@ -279,11 +286,11 @@ function renderChecklistHoje(lista, diaHoje, colaboradoresPorId) {
             <span class="pill pill-${item.status}">${NOME_STATUS[item.status]}</span>
             <span class="client-tag"><span class="tab-status-dot" style="background:${corClienteParaCSS(cliente.cor)};"></span>${escapeHtml(cliente.nome)}</span>
             ${escapeHtml(item.titulo)}
+            ${badgeHorarioHTML(item, dataEfetiva, atrasada)}
             ${atrasada ? '<span class="badge-atrasada">Atrasada</span>' : ""}
           </div>
           ${item.descricao ? `<div class="demanda-meta" style="color:var(--text-secondary);">${escapeHtml(item.descricao)}</div>` : ""}
           <div class="demanda-controls">
-            ${item.hora_publicacao ? `<span class="demanda-meta">${item.hora_publicacao.slice(0, 5)}</span>` : ""}
             ${item.tipo_publicacao === "manual" ? '<span class="demanda-meta">Manual</span>' : ""}
             ${item.responsavel_id && colaboradoresPorId[item.responsavel_id] ? `<span class="demanda-meta">${escapeHtml(colaboradoresPorId[item.responsavel_id])}</span>` : ""}
             <button class="btn btn-primary" data-marcar-feito="${item.id}" style="margin-left:auto;">Marcar como feito</button>
@@ -328,6 +335,13 @@ async function init() {
   renderSaudacaoEData();
   renderCalendario();
   await carregarDados();
+
+  // Atualiza só os selos de horário do checklist de hoje (contagem "faltam
+  // Xmin") de tempos em tempos, sem precisar buscar tudo de novo no GitHub.
+  setInterval(() => {
+    if (!ultimoChecklist) return;
+    renderChecklistHoje(ultimoChecklist.lista, ultimoChecklist.diaHoje, ultimoChecklist.colaboradoresPorId);
+  }, 30000);
 }
 
 document.getElementById("btn-toggle-add").addEventListener("click", () => {

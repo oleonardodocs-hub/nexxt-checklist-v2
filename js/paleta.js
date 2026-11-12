@@ -67,6 +67,51 @@ function tarefaAtrasada(item, dataEfetiva) {
   return false;
 }
 
+// Ícone de relógio (SVG embutido, herda a cor do texto ao redor via
+// "currentColor") usado no selo de horário da tarefa.
+const SVG_RELOGIO =
+  '<svg class="icone-relogio" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M12 7v5l3.2 2"/></svg>';
+
+// Quantos minutos faltam até o horário marcado da tarefa -- só faz sentido
+// (e só calculamos) quando a data efetiva dela é hoje; qualquer outro dia
+// devolve null, porque não é uma contagem regressiva, é só um horário.
+function minutosParaPublicacao(item, dataEfetiva) {
+  if (!item.hora_publicacao || !dataEfetiva) return null;
+  const agora = new Date();
+  const ano = agora.getFullYear();
+  const mes = String(agora.getMonth() + 1).padStart(2, "0");
+  const dia = String(agora.getDate()).padStart(2, "0");
+  const hojeStr = `${ano}-${mes}-${dia}`;
+  if (dataEfetiva !== hojeStr) return null;
+
+  const [h, m] = item.hora_publicacao.split(":").map(Number);
+  const prazo = new Date();
+  prazo.setHours(h, m || 0, 0, 0);
+  return Math.round((prazo - agora) / 60000);
+}
+
+// Selo com o horário marcado pra tarefa (pensado sobretudo pras publicações
+// manuais, onde alguém precisa lembrar de subir na hora certa): fica neutro
+// a maior parte do tempo, vira o alerta amarelo (piscando) quando falta 1h
+// ou menos pra hoje, e some pro vermelho quando já passou do horário e a
+// tarefa continua sem ser publicada.
+function badgeHorarioHTML(item, dataEfetiva, atrasada) {
+  if (!item.hora_publicacao) return "";
+  const minutos = minutosParaPublicacao(item, dataEfetiva);
+  const emBreve = !atrasada && minutos !== null && minutos >= 0 && minutos <= 60;
+
+  let classe = "badge-horario";
+  let texto = item.hora_publicacao.slice(0, 5);
+  if (atrasada) {
+    classe += " badge-horario-atrasada";
+  } else if (emBreve) {
+    classe += " badge-horario-em-breve";
+    texto += ` · faltam ${minutos}min`;
+  }
+
+  return `<span class="${classe}">${SVG_RELOGIO}${texto}</span>`;
+}
+
 // Desenha a fileira de bolinhas de cor dentro de `container` e devolve o slot
 // escolhido via `aoEscolher(slot)`. `valorAtual` marca a bolinha já selecionada.
 function renderSwatches(container, valorAtual, aoEscolher) {

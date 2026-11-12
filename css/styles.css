@@ -533,17 +533,34 @@ a { color: inherit; }
   padding: 6px 12px;
 }
 .historico-dia {
-  margin-bottom: 20px;
+  margin-bottom: 26px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid var(--border-hairline);
 }
 .historico-dia:last-child {
   margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
 }
 .historico-dia h4 {
-  font-size: 11px;
+  font-size: 12px;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+  color: var(--accent);
+  background: var(--accent-soft);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  margin: 0 0 14px;
+}
+.historico-dia h4 .historico-dia-count {
+  font-weight: 400;
   color: var(--text-muted);
-  margin: 0 0 8px;
+  text-transform: none;
+  letter-spacing: normal;
 }
 
 .demanda-item {
@@ -566,6 +583,76 @@ a { color: inherit; }
   border-left-color: var(--status-critical);
   background: color-mix(in srgb, var(--status-critical) 9%, var(--surface-2));
 }
+.badge-recorrente {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  padding: 2px 7px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.checkbox-label input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+}
+.aviso-recorrente {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: var(--accent-soft);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+
+.badge-horario {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+  color: var(--text-secondary);
+  background: var(--surface-2);
+  border: 1px solid var(--border-hairline);
+}
+.badge-horario .icone-relogio {
+  flex-shrink: 0;
+}
+.badge-horario-em-breve {
+  color: var(--status-warning);
+  background: color-mix(in srgb, var(--status-warning) 18%, transparent);
+  border-color: transparent;
+  animation: pulso-horario 1.6s ease-in-out infinite;
+}
+.badge-horario-atrasada {
+  color: var(--status-critical);
+  background: color-mix(in srgb, var(--status-critical) 18%, transparent);
+  border-color: transparent;
+}
+@keyframes pulso-horario {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
 .badge-atrasada {
   font-size: 10px;
   font-weight: 700;

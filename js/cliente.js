@@ -27,6 +27,7 @@ let estado = {
   cliente: null,
   weeks: [],
   demandas: [],
+  recorrentes: [],
   colaboradores: [],
   weekTabSelecionada: null, // id da semana, "pacote" ou "historico"
   historicoMes: null, // "AAAA-MM" selecionado dentro do Histórico
@@ -126,15 +127,18 @@ async function carregarTudo() {
 }
 
 async function carregarSemanasEDemandas() {
-  const [{ data: weeks }, { data: demandas }] = await Promise.all([
+  const [{ data: weeks }, { data: demandas }, { data: recorrentes }] = await Promise.all([
     window.supabaseClient.from("weeks").select("*").eq("client_id", estado.clientId).order("semana_inicio"),
     window.supabaseClient.from("demandas").select("*").eq("client_id", estado.clientId),
+    window.supabaseClient.from("recorrentes").select("*").eq("client_id", estado.clientId),
   ]);
 
   estado.weeks = weeks || [];
   estado.demandas = demandas || [];
+  estado.recorrentes = recorrentes || [];
 
   await garantirProximasSemanas();
+  await garantirRecorrentesNasSemanas(estado.weeks.filter((w) => !semanaPassada(w)).map((w) => w.id));
 
   // se nada selecionado ainda, seleciona a semana validada mais recente, senão a primeira disponível
   if (!estado.weekTabSelecionada) {
@@ -178,6 +182,53 @@ async function garantirProximasSemanas() {
     const { data, error } = await window.supabaseClient.from("weeks").insert(novas).select();
     if (!error && data) estado.weeks = [...estado.weeks, ...data];
   }
+}
+
+// Carimba cada tarefa recorrente ativa (ex.: "toda segunda") em toda semana
+// ativa que ainda não tem uma tarefa gerada por ela -- roda sempre que a
+// tela carrega, então tanto preenche as semanas futuras que já existiam
+// quanto as recém-criadas, sem nunca duplicar (verifica antes de inserir).
+async function garantirRecorrentesNasSemanas(weekIds) {
+  const ativos = estado.recorrentes.filter((r) => r.ativo);
+  if (!weekIds.length || !ativos.length) return;
+
+  const novasDemandas = [];
+  weekIds.forEach((weekId) => {
+    ativos.forEach((r) => {
+      const jaTem = estado.demandas.some((d) => d.week_id === weekId && d.recorrente_id === r.id);
+      if (jaTem) return;
+      novasDemandas.push({
+        client_id: estado.clientId,
+        week_id: weekId,
+        bloco: r.bloco,
+        titulo: r.titulo,
+        descricao: r.descricao,
+        tipo_publicacao: r.tipo_publicacao,
+        responsavel_id: r.responsavel_id,
+        link: r.link,
+        hora_publicacao: r.hora_publicacao,
+        status: "pendente",
+        recorrente_id: r.id,
+      });
+    });
+  });
+
+  if (novasDemandas.length) {
+    const { data, error } = await window.supabaseClient.from("demandas").insert(novasDemandas).select();
+    if (!error && data) estado.demandas = [...estado.demandas, ...data];
+  }
+}
+
+async function pararRecorrencia(recorrenteId) {
+  if (!confirm("Parar de repetir essa tarefa? As que já foram criadas continuam, só para de entrar em semanas novas.")) return;
+  const { error } = await window.supabaseClient.from("recorrentes").update({ ativo: false }).eq("id", recorrenteId);
+  if (error) {
+    mostrarToast("Erro ao parar a repetição: " + error.message);
+    return;
+  }
+  mostrarToast("Repetição parada.");
+  await carregarSemanasEDemandas();
+  renderWeekTabs();
 }
 
 // ------------------------------------------------------------------
@@ -406,7 +457,7 @@ function renderBlockCard({ bloco, titulo, weekId, semana, itens }) {
       <button class="btn btn-ghost" style="margin-top:10px; width:100%;" data-acao="abrir-form" data-bloco="${bloco}" data-week-id="${weekId || ""}">+ Adicionar tarefa</button>
 
       <div class="add-form" data-form-bloco="${bloco}" data-form-week="${weekId || ""}">
-        ${camposTarefaHTML(isPacote, null)}
+        ${camposTarefaHTML(isPacote, null, bloco)}
         <button class="btn btn-primary" data-acao="salvar-tarefa" data-bloco="${bloco}" data-week-id="${weekId || ""}">Salvar tarefa</button>
         <button class="btn btn-ghost" data-acao="fechar-form" data-bloco="${bloco}" data-week-id="${weekId || ""}">Cancelar</button>
       </div>
@@ -449,7 +500,7 @@ function renderHistorico() {
         .map(
           (dia) => `
             <div class="historico-dia">
-              <h4>${formatarDataLonga(dia)}</h4>
+              <h4>${formatarDataLonga(dia)} <span class="historico-dia-count">${porDia[dia].length} tarefa${porDia[dia].length === 1 ? "" : "s"}</span></h4>
               ${porDia[dia].map((x) => renderDemandaItem(x.item, x.isPacote, x.semana)).join("")}
             </div>
           `
@@ -471,13 +522,25 @@ function renderHistorico() {
 
 // Campos do formulário de tarefa, reaproveitados tanto para adicionar uma
 // tarefa nova (item = null) quanto para editar uma já existente (item
-// preenchido, pré-seleciona os valores atuais).
-function camposTarefaHTML(isPacote, item) {
+// preenchido, pré-seleciona os valores atuais). "bloco" só é obrigatório
+// pra tarefa nova (pra saber de qual dia oferecer a repetição); numa
+// edição já vem de item.bloco.
+function camposTarefaHTML(isPacote, item, bloco) {
   item = item || {};
+  bloco = bloco || item.bloco;
   const tipo = item.tipo_publicacao || "agendada";
   const horaVal = item.hora_publicacao ? item.hora_publicacao.slice(0, 5) : "";
+  const ehTarefaNova = !item.id;
 
   return `
+    ${
+      item.recorrente_id
+        ? `<div class="aviso-recorrente">
+            <span>Essa tarefa se repete toda ${NOME_DIA[item.bloco]}.</span>
+            <button type="button" class="btn btn-ghost" data-acao="parar-recorrencia" data-recorrente-id="${item.recorrente_id}">Parar de repetir</button>
+          </div>`
+        : ""
+    }
     <div class="field">
       <label>Tarefa</label>
       <input type="text" class="input-titulo" placeholder="Ex: Subir post feed" value="${escapeHtml(item.titulo || "")}" />
@@ -517,13 +580,20 @@ function camposTarefaHTML(isPacote, item) {
             <div class="field"><label>Hora</label><input type="time" class="input-hora" value="${horaVal}" /></div>
           </div>`
     }
+    ${
+      !isPacote && ehTarefaNova
+        ? `<div class="field">
+            <label class="checkbox-label"><input type="checkbox" class="input-recorrente" /> Repetir toda ${NOME_DIA[bloco]} (entra sozinha nas próximas semanas)</label>
+          </div>`
+        : ""
+    }
   `;
 }
 
 function renderDemandaItem(item, isPacote, semana) {
   const metaBits = [];
   if (item.tipo_publicacao === "manual") metaBits.push("Manual");
-  if (item.data_publicacao) metaBits.push(formatarDataCurta(item.data_publicacao) + (item.hora_publicacao ? " " + item.hora_publicacao.slice(0, 5) : ""));
+  if (item.data_publicacao) metaBits.push(formatarDataCurta(item.data_publicacao));
   if (item.prazo_pacote) metaBits.push("Prazo: " + formatarDataCurta(item.prazo_pacote));
   if (item.link) metaBits.push(`<a href="${escapeHtml(item.link)}" target="_blank" rel="noopener">Ver arte</a>`);
 
@@ -536,6 +606,8 @@ function renderDemandaItem(item, isPacote, semana) {
       <div class="demanda-title">
         <span class="pill pill-${item.status}">${NOME_STATUS[item.status]}</span>
         ${escapeHtml(item.titulo)}
+        ${item.recorrente_id ? '<span class="badge-recorrente">Recorrente</span>' : ""}
+        ${badgeHorarioHTML(item, dataEfetiva, atrasada)}
         ${atrasada ? '<span class="badge-atrasada">Atrasada</span>' : ""}
       </div>
       ${item.descricao ? `<div class="demanda-meta" style="color:var(--text-secondary);">${escapeHtml(item.descricao)}</div>` : ""}
@@ -614,6 +686,10 @@ function ligarEventosDoGrid() {
   grid.querySelectorAll('[data-acao="excluir-tarefa"]').forEach((btn) => {
     btn.addEventListener("click", () => excluirTarefa(btn.dataset.id));
   });
+
+  grid.querySelectorAll('[data-acao="parar-recorrencia"]').forEach((btn) => {
+    btn.addEventListener("click", () => pararRecorrencia(btn.dataset.recorrenteId));
+  });
 }
 
 // Fica de olho nos seletores de "Responsável" (tanto o rápido, de cada
@@ -683,23 +759,53 @@ async function salvarTarefa(bloco, weekId) {
     return;
   }
 
+  const descricao = form.querySelector(".input-descricao").value.trim() || null;
+  const tipoPublicacao = form.querySelector(".input-tipo").value;
+  const responsavelId = form.querySelector(".input-responsavel").value || null;
+  const link = form.querySelector(".input-link").value.trim() || null;
+
+  const inputData = form.querySelector(".input-data");
+  const inputHora = form.querySelector(".input-hora");
+  const inputPrazo = form.querySelector(".input-prazo");
+  const horaPublicacao = inputHora ? inputHora.value || null : null;
+
+  const inputRecorrente = form.querySelector(".input-recorrente");
+  const querRecorrente = inputRecorrente && inputRecorrente.checked;
+
+  let recorrenteId = null;
+  if (querRecorrente) {
+    const { data: recData, error: recErro } = await window.supabaseClient.from("recorrentes").insert({
+      client_id: estado.clientId,
+      bloco,
+      titulo,
+      descricao,
+      tipo_publicacao: tipoPublicacao,
+      responsavel_id: responsavelId,
+      link,
+      hora_publicacao: horaPublicacao,
+      ativo: true,
+    });
+    if (recErro) {
+      mostrarToast("Erro ao criar a repetição: " + recErro.message);
+      return;
+    }
+    recorrenteId = recData[0].id;
+  }
+
   const payload = {
     client_id: estado.clientId,
     week_id: weekId || null,
     bloco,
     titulo,
-    descricao: form.querySelector(".input-descricao").value.trim() || null,
-    tipo_publicacao: form.querySelector(".input-tipo").value,
-    responsavel_id: form.querySelector(".input-responsavel").value || null,
-    link: form.querySelector(".input-link").value.trim() || null,
+    descricao,
+    tipo_publicacao: tipoPublicacao,
+    responsavel_id: responsavelId,
+    link,
     status: "pendente",
+    recorrente_id: recorrenteId,
   };
-
-  const inputData = form.querySelector(".input-data");
-  const inputHora = form.querySelector(".input-hora");
-  const inputPrazo = form.querySelector(".input-prazo");
   if (inputData) payload.data_publicacao = inputData.value || null;
-  if (inputHora) payload.hora_publicacao = inputHora.value || null;
+  if (inputHora) payload.hora_publicacao = horaPublicacao;
   if (inputPrazo) payload.prazo_pacote = inputPrazo.value || null;
 
   const { error } = await window.supabaseClient.from("demandas").insert(payload);
@@ -708,7 +814,7 @@ async function salvarTarefa(bloco, weekId) {
     return;
   }
 
-  mostrarToast("Tarefa adicionada.");
+  mostrarToast(querRecorrente ? "Tarefa recorrente criada. Ela já entra sozinha nas próximas semanas." : "Tarefa adicionada.");
   await carregarSemanasEDemandas();
   renderWeekTabs();
 }
@@ -785,6 +891,15 @@ async function excluirTarefa(id) {
 async function init() {
   if (!montarTopbarAcoes("user-tag")) return;
   await carregarTudo();
+
+  // Atualiza os selos de horário sozinho (sem precisar recarregar a
+  // página), pra a contagem "faltam Xmin" andar e o alerta amarelo/
+  // vermelho aparecer na hora certa. Pula a rodada se tiver algum
+  // formulário aberto, pra não atrapalhar quem está digitando.
+  setInterval(() => {
+    if (document.querySelector("#block-grid .add-form.open")) return;
+    renderBlocks();
+  }, 30000);
 }
 
 init();
