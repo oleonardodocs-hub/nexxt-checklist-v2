@@ -4,7 +4,8 @@
     "created_at": "2026-11-11T23:51:08.021Z",
     "client_id": "335b3cfa-ca27-4417-b962-36a8aebc0a43",
     "semana_inicio": "2026-11-09",
-    "status": "aguardando_validacao"
+    "status": "validada",
+    "updated_at": "2026-11-12T01:53:52.645Z"
   },
   {
     "id": "fe722428-e41a-492f-8ec4-811abe423de6",
