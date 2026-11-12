@@ -38,7 +38,11 @@ function segundaFeiraDe(date) {
   return d;
 }
 function toISODate(date) {
-  return date.toISOString().slice(0, 10);
+  // fuso local, não UTC (ver nota em js/dashboard.js)
+  const ano = date.getFullYear();
+  const mes = String(date.getMonth() + 1).padStart(2, "0");
+  const dia = String(date.getDate()).padStart(2, "0");
+  return `${ano}-${mes}-${dia}`;
 }
 function addDias(isoDate, dias) {
   const d = new Date(isoDate + "T00:00:00");
@@ -321,6 +325,7 @@ function renderBlocks() {
       bloco: dia,
       titulo: NOME_DIA[dia],
       weekId: semana.id,
+      semana,
       itens: estado.demandas.filter((d) => d.week_id === semana.id && d.bloco === dia),
     })
   ).join("");
@@ -328,7 +333,7 @@ function renderBlocks() {
   ligarEventosDoGrid();
 }
 
-function renderBlockCard({ bloco, titulo, weekId, itens }) {
+function renderBlockCard({ bloco, titulo, weekId, semana, itens }) {
   const isPacote = bloco === "datas_comemorativas";
   const feitos = itens.filter((i) => i.status === "publicada").length;
 
@@ -336,7 +341,7 @@ function renderBlockCard({ bloco, titulo, weekId, itens }) {
     <div class="block-card" data-bloco="${bloco}" data-week-id="${weekId || ""}">
       <h3>${titulo} <span class="block-count">${feitos}/${itens.length}</span></h3>
 
-      ${itens.map((item) => renderDemandaItem(item, isPacote)).join("") || '<p style="font-size:12px; color:var(--text-muted);">Nenhuma tarefa ainda.</p>'}
+      ${itens.map((item) => renderDemandaItem(item, isPacote, semana)).join("") || '<p style="font-size:12px; color:var(--text-muted);">Nenhuma tarefa ainda.</p>'}
 
       <button class="btn btn-ghost" style="margin-top:10px; width:100%;" data-acao="abrir-form" data-bloco="${bloco}" data-week-id="${weekId || ""}">+ Adicionar tarefa</button>
 
@@ -400,20 +405,23 @@ function camposTarefaHTML(isPacote, item) {
   `;
 }
 
-function renderDemandaItem(item, isPacote) {
+function renderDemandaItem(item, isPacote, semana) {
   const metaBits = [];
   if (item.tipo_publicacao === "manual") metaBits.push("Manual");
   if (item.data_publicacao) metaBits.push(formatarDataCurta(item.data_publicacao) + (item.hora_publicacao ? " " + item.hora_publicacao.slice(0, 5) : ""));
   if (item.prazo_pacote) metaBits.push("Prazo: " + formatarDataCurta(item.prazo_pacote));
   if (item.link) metaBits.push(`<a href="${escapeHtml(item.link)}" target="_blank" rel="noopener">Ver arte</a>`);
 
-  const accent = window.ACCENT_POR_STATUS[item.status] || "var(--border-hairline)";
+  const corCliente = corClienteParaCSS(estado.cliente ? estado.cliente.cor : null);
+  const dataEfetiva = dataEfetivaDaTarefa(item, semana);
+  const atrasada = tarefaAtrasada(item, dataEfetiva);
 
   return `
-    <div class="demanda-item" data-id="${item.id}" style="--item-accent:${accent}">
+    <div class="demanda-item ${atrasada ? "is-atrasada" : ""}" data-id="${item.id}" style="--client-color:${corCliente}">
       <div class="demanda-title">
         <span class="pill pill-${item.status}">${NOME_STATUS[item.status]}</span>
         ${escapeHtml(item.titulo)}
+        ${atrasada ? '<span class="badge-atrasada">Atrasada</span>' : ""}
       </div>
       ${item.descricao ? `<div class="demanda-meta" style="color:var(--text-secondary);">${escapeHtml(item.descricao)}</div>` : ""}
       ${metaBits.length ? `<div class="demanda-meta">${metaBits.join(" · ")}</div>` : ""}

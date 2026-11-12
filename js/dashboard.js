@@ -36,7 +36,14 @@ function segundaFeiraDe(date) {
 }
 
 function toISODate(date) {
-  return date.toISOString().slice(0, 10);
+  // Usa o fuso horário local (não UTC): "toISOString" converte pra UTC, o
+  // que faz virar o dia mais cedo do que deveria pra quem está num fuso
+  // atrás de UTC (Brasil, por exemplo) à noite, e tarefas de "hoje"
+  // deixavam de aparecer no checklist depois de um certo horário.
+  const ano = date.getFullYear();
+  const mes = String(date.getMonth() + 1).padStart(2, "0");
+  const dia = String(date.getDate()).padStart(2, "0");
+  return `${ano}-${mes}-${dia}`;
 }
 
 function hojeISO() {
@@ -136,6 +143,9 @@ function renderClientes(clients, weeks, demandas, colaboradoresPorId) {
   const diaHoje = diaDeHojeChave();
   const checklistHoje = [];
 
+  const semanaPorId = {};
+  weeks.forEach((w) => (semanaPorId[w.id] = w));
+
   grid.innerHTML = clients
     .map((cliente) => {
       const semanasCliente = weeks.filter((w) => w.client_id === cliente.id);
@@ -165,9 +175,6 @@ function renderClientes(clients, weeks, demandas, colaboradoresPorId) {
         semanaEhProxima = !!semanaMostrada;
       }
 
-      const demandasSemanaAtiva = semanaAtiva
-        ? demandasCliente.filter((d) => d.week_id === semanaAtiva.id)
-        : [];
       const demandasSemanaMostrada = semanaMostrada
         ? demandasCliente.filter((d) => d.week_id === semanaMostrada.id)
         : [];
@@ -177,24 +184,21 @@ function renderClientes(clients, weeks, demandas, colaboradoresPorId) {
       const pct = total > 0 ? Math.round((publicadas / total) * 100) : 0;
 
       const pendentesValidacao = demandasCliente.filter((d) => d.status === "aguardando_validacao").length;
-      const manualHoje = demandasCliente.filter(
-        (d) => d.tipo_publicacao === "manual" && d.status === "manual_pendente" && d.data_publicacao === hoje
-      ).length;
 
-      // monta o checklist do dia: tarefas do bloco de hoje na semana ativa,
-      // mais qualquer publicação manual pendente datada para hoje (ainda que fora do bloco)
-      const idsJaIncluidos = new Set();
-      if (diaHoje && semanaAtiva) {
-        demandasSemanaAtiva
-          .filter((d) => d.bloco === diaHoje && d.status !== "publicada")
-          .forEach((d) => {
-            idsJaIncluidos.add(d.id);
-            checklistHoje.push({ cliente, item: d });
-          });
-      }
-      demandasCliente
-        .filter((d) => d.data_publicacao === hoje && d.status !== "publicada" && !idsJaIncluidos.has(d.id))
-        .forEach((d) => checklistHoje.push({ cliente, item: d }));
+      // monta o checklist do dia: qualquer tarefa (de qualquer semana, mesmo
+      // ainda não validada) cuja data efetiva seja hoje. A data efetiva vem
+      // do campo "Data" quando preenchido, ou é calculada a partir do
+      // início da semana + o dia da coluna, pra funcionar mesmo que a
+      // pessoa só tenha escolhido a coluninha do dia sem preencher a data.
+      const demandasHojeCliente = demandasCliente.filter((d) => {
+        if (d.status === "publicada") return false;
+        const semanaDaTarefa = d.week_id ? semanaPorId[d.week_id] : null;
+        return dataEfetivaDaTarefa(d, semanaDaTarefa) === hoje;
+      });
+
+      const manualHoje = demandasHojeCliente.filter((d) => d.tipo_publicacao === "manual" && d.status === "manual_pendente").length;
+
+      demandasHojeCliente.forEach((d) => checklistHoje.push({ cliente, item: d, semana: d.week_id ? semanaPorId[d.week_id] : null }));
 
       let nextStep = "Sem semana criada ainda";
       if (semanaAguardando) {
@@ -266,12 +270,16 @@ function renderChecklistHoje(lista, diaHoje, colaboradoresPorId) {
   el.innerHTML =
     '<div class="today-wrap">' +
     lista
-      .map(({ cliente, item }) => `
-        <div class="demanda-item" style="--item-accent:${ACCENT_POR_STATUS[item.status] || "var(--border-hairline)"}">
+      .map(({ cliente, item, semana }) => {
+        const dataEfetiva = dataEfetivaDaTarefa(item, semana);
+        const atrasada = tarefaAtrasada(item, dataEfetiva);
+        return `
+        <div class="demanda-item ${atrasada ? "is-atrasada" : ""}" style="--client-color:${corClienteParaCSS(cliente.cor)}">
           <div class="demanda-title">
             <span class="pill pill-${item.status}">${NOME_STATUS[item.status]}</span>
             <span class="client-tag"><span class="tab-status-dot" style="background:${corClienteParaCSS(cliente.cor)};"></span>${escapeHtml(cliente.nome)}</span>
             ${escapeHtml(item.titulo)}
+            ${atrasada ? '<span class="badge-atrasada">Atrasada</span>' : ""}
           </div>
           ${item.descricao ? `<div class="demanda-meta" style="color:var(--text-secondary);">${escapeHtml(item.descricao)}</div>` : ""}
           <div class="demanda-controls">
@@ -282,7 +290,8 @@ function renderChecklistHoje(lista, diaHoje, colaboradoresPorId) {
             <a class="btn btn-ghost" href="cliente.html?id=${cliente.id}">Abrir</a>
           </div>
         </div>
-      `)
+      `;
+      })
       .join("") +
     "</div>";
 

@@ -27,15 +27,45 @@ function corClienteParaCSS(valor) {
 // Cor de destaque (barrinha lateral + leve tingimento do fundo) de cada
 // card de tarefa, de acordo com o status. Reaproveita os mesmos tokens de
 // cor já usados nas pills de status, só que também no corpo do card.
-window.ACCENT_POR_STATUS = {
-  pendente: "var(--accent)",
-  em_producao: "var(--accent)",
-  agendada: "var(--accent)",
-  aguardando_validacao: "var(--status-warning)",
-  manual_pendente: "var(--status-serious)",
-  validada: "var(--status-good)",
-  publicada: "var(--status-good)",
-};
+// Quantos dias depois da segunda-feira cada bloco cai.
+window.OFFSET_DIA_SEMANA = { segunda: 0, terca: 1, quarta: 2, quinta: 3, sexta: 4 };
+
+// Data (AAAA-MM-DD) em que a tarefa cai de fato: usa o campo "Data" se foi
+// preenchido; senão, quando dá pra saber (a tarefa está numa semana e num
+// bloco de dia de semana, não no pacote de datas comemorativas), calcula a
+// partir do início daquela semana. Isso faz o checklist de hoje funcionar
+// mesmo quando só foi escolhida a coluninha do dia, sem preencher a data
+// "de novo" lá no formulário.
+function dataEfetivaDaTarefa(item, semana) {
+  if (item.data_publicacao) return item.data_publicacao;
+  if (!semana || window.OFFSET_DIA_SEMANA[item.bloco] === undefined) return null;
+  const d = new Date(semana.semana_inicio + "T00:00:00");
+  d.setDate(d.getDate() + window.OFFSET_DIA_SEMANA[item.bloco]);
+  const ano = d.getFullYear();
+  const mes = String(d.getMonth() + 1).padStart(2, "0");
+  const dia = String(d.getDate()).padStart(2, "0");
+  return `${ano}-${mes}-${dia}`;
+}
+
+// Atrasada = já passou do dia (ou da hora marcada, se houver) e ainda não
+// foi publicada.
+function tarefaAtrasada(item, dataEfetiva) {
+  if (!dataEfetiva || item.status === "publicada") return false;
+  const agora = new Date();
+  const ano = agora.getFullYear();
+  const mes = String(agora.getMonth() + 1).padStart(2, "0");
+  const dia = String(agora.getDate()).padStart(2, "0");
+  const hojeStr = `${ano}-${mes}-${dia}`;
+
+  if (dataEfetiva < hojeStr) return true;
+  if (dataEfetiva === hojeStr && item.hora_publicacao) {
+    const [h, m] = item.hora_publicacao.split(":").map(Number);
+    const prazo = new Date();
+    prazo.setHours(h, m || 0, 0, 0);
+    return agora > prazo;
+  }
+  return false;
+}
 
 // Desenha a fileira de bolinhas de cor dentro de `container` e devolve o slot
 // escolhido via `aoEscolher(slot)`. `valorAtual` marca a bolinha já selecionada.
