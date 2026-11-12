@@ -29,5 +29,21 @@
     "recorrente_id": null,
     "data_publicacao": "2026-11-12",
     "hora_publicacao": "10:30"
+  },
+  {
+    "id": "53534157-de2f-433c-8a70-bb4a9d113f03",
+    "created_at": "2026-11-12T13:12:32.763Z",
+    "client_id": "335b3cfa-ca27-4417-b962-36a8aebc0a43",
+    "week_id": "8e659b65-e1be-4dae-baa5-af89e8faa984",
+    "bloco": "quinta",
+    "titulo": "Teste 02",
+    "descricao": "teste",
+    "tipo_publicacao": "agendada",
+    "responsavel_id": null,
+    "link": null,
+    "status": "pendente",
+    "recorrente_id": null,
+    "data_publicacao": "2026-11-11",
+    "hora_publicacao": "12:12"
   }
 ]
