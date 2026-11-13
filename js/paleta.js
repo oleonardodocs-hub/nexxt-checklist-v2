@@ -30,13 +30,20 @@ function corClienteParaCSS(valor) {
 // Quantos dias depois da segunda-feira cada bloco cai.
 window.OFFSET_DIA_SEMANA = { segunda: 0, terca: 1, quarta: 2, quinta: 3, sexta: 4 };
 
-// Data (AAAA-MM-DD) em que a tarefa cai de fato: usa o campo "Data" se foi
-// preenchido; senão, quando dá pra saber (a tarefa está numa semana e num
-// bloco de dia de semana, não no pacote de datas comemorativas), calcula a
-// partir do início daquela semana. Isso faz o checklist de hoje funcionar
-// mesmo quando só foi escolhida a coluninha do dia, sem preencher a data
-// "de novo" lá no formulário.
+// Data (AAAA-MM-DD) em que a tarefa cai de fato PRA FINS DE CHECKLIST/ATRASO:
+// usa o prazo de produção ("Prazo para ficar pronta"), quando preenchido --
+// é o que decide em qual dia a tarefa aparece no Checklist de hoje, mesmo
+// que ela vá publicar/entregar num dia bem diferente (ex.: produzir hoje
+// uma tarefa que só vai ao ar segunda-feira). Na falta dele, usa o campo
+// "Data" (data de publicação/entrega); e na falta desse também, quando dá
+// pra saber (a tarefa está numa semana e num bloco de dia de semana, não no
+// pacote de datas comemorativas), calcula a partir do início daquela semana.
+// Isso faz o checklist de hoje funcionar mesmo quando só foi escolhida a
+// coluninha do dia, sem preencher nenhuma data "de novo" lá no formulário.
+// Importante: isso NÃO muda em qual coluna (dia da semana)/semana a tarefa
+// aparece no pipeline -- isso continua sendo só "bloco" + "week_id".
 function dataEfetivaDaTarefa(item, semana) {
+  if (item.prazo_producao) return item.prazo_producao;
   if (item.data_publicacao) return item.data_publicacao;
   if (!semana || window.OFFSET_DIA_SEMANA[item.bloco] === undefined) return null;
   const d = new Date(semana.semana_inicio + "T00:00:00");

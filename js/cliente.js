@@ -271,24 +271,12 @@ async function pararRecorrencia(recorrenteId) {
 }
 
 // ------------------------------------------------------------------
-// Seletor de clientes (pastilhas no topo)
+// Cor do cliente (bolinhas de paleta no topo, embaixo do título -- o nome
+// do cliente já aparece no título da página, então não repete de novo
+// aqui embaixo em formato de botão).
 // ------------------------------------------------------------------
 
 function renderClientSwitcher() {
-  const el = document.getElementById("client-switcher");
-  el.innerHTML = estado.clients
-    .map((c) => {
-      const ativo = c.id === estado.clientId;
-      const cor = corClienteParaCSS(c.cor);
-      return `
-        <a class="week-tab ${ativo ? "active" : ""}" href="cliente.html?id=${c.id}"
-           style="${ativo ? "" : `border-color:color-mix(in srgb, ${cor} 40%, transparent);`}">
-          <span class="tab-status-dot" style="background:${cor};"></span>${escapeHtml(c.nome)}
-        </a>
-      `;
-    })
-    .join("");
-
   renderSwatches(document.getElementById("client-color-swatches"), estado.cliente ? estado.cliente.cor : null, atualizarCorCliente);
 }
 
@@ -621,8 +609,14 @@ function renderPreviaProximaSemana() {
       tituloTarefa = principal.titulo;
     }
 
+    // Card com tarefa: clicar abre ela no modal. Card vazio: clicar já abre
+    // o modal em modo de criação, com o dia/semana certos pré-preenchidos
+    // -- cria (e pode já marcar como pronta) sem precisar ir lá embaixo
+    // procurar a coluna do dia.
     return `
-      <button type="button" class="previa-card ${pronta ? "previa-ok" : "previa-pendente"}" data-previa-week-id="${semana.id}" title="Ver essa semana no pipeline">
+      <button type="button" class="previa-card ${pronta ? "previa-ok" : "previa-pendente"}"
+        data-previa-dia="${dia}" ${principal ? `data-previa-tarefa-id="${principal.id}"` : ""}
+        title="${principal ? "Clique para abrir essa tarefa" : "Clique para criar a tarefa desse dia"}">
         <span class="previa-card-dia">${NOME_DIA[dia].replace("-feira", "")} · ${formatarDataCurta(dataDoDia)}</span>
         <span class="previa-card-titulo">${tituloTarefa ? escapeHtml(tituloTarefa) : "Sem tarefa de mídia social"}</span>
         <span class="previa-card-status">${pronta ? "✓ " : "● "}${escapeHtml(textoStatus)}</span>
@@ -644,12 +638,22 @@ function renderPreviaProximaSemana() {
     </div>
   `;
 
-  el.querySelectorAll("[data-previa-week-id]").forEach((btn) => {
+  el.querySelectorAll("[data-previa-dia]").forEach((btn) => {
     btn.addEventListener("click", () => {
-      estado.weekTabSelecionada = btn.dataset.previaWeekId;
-      renderWeekTabs();
-      const tabs = document.getElementById("week-tabs");
-      if (tabs) window.scrollTo({ top: tabs.offsetTop - 80, behavior: "smooth" });
+      const idTarefa = btn.dataset.previaTarefaId;
+      if (idTarefa) {
+        window.abrirModalTarefa(idTarefa, { aoMudar: recarregarGrid });
+        return;
+      }
+      window.abrirModalTarefa(null, {
+        aoMudar: recarregarGrid,
+        novaTarefa: {
+          client_id: estado.clientId,
+          week_id: semana.id,
+          bloco: btn.dataset.previaDia,
+          data_publicacao: addDias(semana.semana_inicio, window.OFFSET_DIA_SEMANA[btn.dataset.previaDia]),
+        },
+      });
     });
   });
 }
@@ -937,8 +941,13 @@ function camposTarefaHTML(isPacote, item, bloco) {
       isPacote
         ? `<div class="field"><label>Prazo do pacote</label><input type="date" class="input-prazo" value="${item.prazo_pacote || ""}" /></div>`
         : `<div class="grid-2">
-            <div class="field"><label>Data</label><input type="date" class="input-data" value="${item.data_publicacao || ""}" /></div>
+            <div class="field"><label>Data de publicação/entrega</label><input type="date" class="input-data" value="${item.data_publicacao || ""}" /></div>
             <div class="field"><label>Hora</label><input type="time" class="input-hora" value="${horaVal}" /></div>
+          </div>
+          <div class="field">
+            <label>Prazo para ficar pronta</label>
+            <input type="date" class="input-prazo-producao" value="${item.prazo_producao || ""}" />
+            <p class="field-hint">Só preenche se precisar produzir ANTES do dia de publicação/entrega -- aí a tarefa aparece no Checklist de hoje nesse prazo, mesmo publicando depois.</p>
           </div>`
     }
     ${
@@ -1121,6 +1130,7 @@ async function salvarTarefa(bloco, weekId) {
   const inputData = form.querySelector(".input-data");
   const inputHora = form.querySelector(".input-hora");
   const inputPrazo = form.querySelector(".input-prazo");
+  const inputPrazoProducao = form.querySelector(".input-prazo-producao");
   const horaPublicacao = inputHora ? inputHora.value || null : null;
 
   const inputRecorrente = form.querySelector(".input-recorrente");
@@ -1165,6 +1175,10 @@ async function salvarTarefa(bloco, weekId) {
   if (inputData) payload.data_publicacao = inputData.value || null;
   if (inputHora) payload.hora_publicacao = horaPublicacao;
   if (inputPrazo) payload.prazo_pacote = inputPrazo.value || null;
+  // Não entra no modelo da recorrência (lá em cima) de propósito: é o
+  // prazo de produção DESSA ocorrência específica, não um valor fixo que
+  // faria sentido repetir em toda semana futura gerada a partir dele.
+  if (inputPrazoProducao) payload.prazo_producao = inputPrazoProducao.value || null;
 
   const { error } = await window.supabaseClient.from("demandas").insert(payload);
   if (error) {

@@ -85,8 +85,38 @@
     aoMudarAtual = opcoes.aoMudar || null;
 
     const overlay = elOverlay();
-    overlay.innerHTML = '<div class="modal-card"><div class="empty-state">Carregando tarefa...</div></div>';
+    overlay.innerHTML = '<div class="modal-card"><div class="empty-state">Carregando...</div></div>';
     overlay.style.display = "flex";
+
+    // Modo "criar": não existe demanda ainda (ex.: clicou num card vazio da
+    // prévia da próxima semana) -- abre o mesmo card, já pré-preenchido com
+    // o dia/semana/cliente certos, mas pra criar em vez de editar.
+    if (!demandaId && opcoes.novaTarefa) {
+      const { data: colaboradores } = await window.supabaseClient.from("colaboradores").select("*").order("nome");
+      let cliente = null;
+      if (opcoes.novaTarefa.client_id) {
+        const { data } = await window.supabaseClient.from("clients").select("*").eq("id", opcoes.novaTarefa.client_id).single();
+        cliente = data || null;
+      }
+      const rascunho = {
+        client_id: opcoes.novaTarefa.client_id,
+        week_id: opcoes.novaTarefa.week_id,
+        bloco: opcoes.novaTarefa.bloco,
+        data_publicacao: opcoes.novaTarefa.data_publicacao || null,
+        titulo: "",
+        descricao: "",
+        categoria: "social",
+        tipo_publicacao: "agendada",
+        status: "pendente",
+        responsavel_id: null,
+        link: null,
+        link_referencia: null,
+        hora_publicacao: null,
+        prazo_producao: null,
+      };
+      renderizarModalTarefa(rascunho, colaboradores || [], cliente, true);
+      return;
+    }
 
     const [{ data: tarefa, error: errTarefa }, { data: colaboradores }] = await Promise.all([
       window.supabaseClient.from("demandas").select("*").eq("id", demandaId).single(),
@@ -105,11 +135,11 @@
       cliente = data || null;
     }
 
-    renderizarModalTarefa(tarefa, colaboradores || [], cliente);
+    renderizarModalTarefa(tarefa, colaboradores || [], cliente, false);
   }
   window.abrirModalTarefa = abrirModalTarefa;
 
-  function renderizarModalTarefa(tarefa, colaboradores, cliente) {
+  function renderizarModalTarefa(tarefa, colaboradores, cliente, isNovo) {
     const overlay = elOverlay();
     const isPacote = tarefa.bloco === "datas_comemorativas";
     const categoria = categoriaDaTarefaModal(tarefa);
@@ -123,7 +153,7 @@
         <div class="modal-card-head">
           <div>
             ${cliente ? `<span class="client-tag"><span class="tab-status-dot"></span>${escaparHtml(cliente.nome)}</span>` : ""}
-            <h3 style="margin:8px 0 0;">${escaparHtml(tarefa.titulo)}</h3>
+            <h3 style="margin:8px 0 0;">${tarefa.titulo ? escaparHtml(tarefa.titulo) : "Nova tarefa"}</h3>
             <div class="modal-card-head-tags">
               <span class="pill" id="pill-status-modal">${NOME_STATUS_MODAL[tarefa.status] || tarefa.status}</span>
               ${categoria === "diaria" ? '<span class="pill">Tarefa diária</span>' : ""}
@@ -203,8 +233,13 @@
             isPacote
               ? `<div class="field"><label>Prazo do pacote</label><input type="date" class="input-prazo-modal" value="${tarefa.prazo_pacote || ""}" /></div>`
               : `<div class="grid-2">
-                  <div class="field"><label>Data</label><input type="date" class="input-data-modal" value="${tarefa.data_publicacao || ""}" /></div>
+                  <div class="field"><label>Data de publicação/entrega</label><input type="date" class="input-data-modal" value="${tarefa.data_publicacao || ""}" /></div>
                   <div class="field"><label>Hora</label><input type="time" class="input-hora-modal" value="${horaVal}" /></div>
+                </div>
+                <div class="field">
+                  <label>Prazo para ficar pronta</label>
+                  <input type="date" class="input-prazo-producao-modal" value="${tarefa.prazo_producao || ""}" />
+                  <p class="field-hint">Só preenche se precisar produzir ANTES do dia de publicação/entrega -- aí a tarefa aparece no Checklist de hoje nesse prazo, mesmo publicando depois.</p>
                 </div>`
           }
 
@@ -212,13 +247,13 @@
         </div>
 
         <div class="modal-card-footer">
-          <button type="button" class="btn btn-perigo-ghost" id="btn-excluir-modal-tarefa">Excluir tarefa</button>
+          ${!isNovo ? `<button type="button" class="btn btn-perigo-ghost" id="btn-excluir-modal-tarefa">Excluir tarefa</button>` : ""}
           ${
-            !isPacote && tarefa.week_id
+            !isNovo && !isPacote && tarefa.week_id
               ? `<button type="button" class="btn btn-ghost" id="btn-duplicar-modal-tarefa" title="Copiar essa tarefa pra próxima semana, no mesmo dia">Duplicar</button>`
               : ""
           }
-          <button type="button" class="btn btn-primary" id="btn-salvar-modal-tarefa" style="margin-left:auto;">Salvar alterações</button>
+          <button type="button" class="btn btn-primary" id="btn-salvar-modal-tarefa" style="margin-left:auto;">${isNovo ? "Criar tarefa" : "Salvar alterações"}</button>
         </div>
       </div>
     `;
@@ -226,6 +261,15 @@
     document.getElementById("btn-fechar-modal-tarefa").addEventListener("click", fecharModalTarefa);
 
     overlay.querySelector(".input-status-modal").addEventListener("change", async (ev) => {
+      // Numa tarefa nova ainda não existe linha no banco pra atualizar --
+      // só guarda o valor escolhido, que vai junto quando "Criar tarefa"
+      // for clicado.
+      if (isNovo) {
+        tarefa.status = ev.target.value;
+        const pillStatusNovo = document.getElementById("pill-status-modal");
+        if (pillStatusNovo) pillStatusNovo.textContent = NOME_STATUS_MODAL[tarefa.status] || tarefa.status;
+        return;
+      }
       const { error } = await window.supabaseClient.from("demandas").update({ status: ev.target.value }).eq("id", tarefa.id);
       if (error) {
         mostrarMsgModal("Erro ao salvar status: " + error.message, true);
@@ -298,16 +342,19 @@
       });
     }
 
-    document.getElementById("btn-excluir-modal-tarefa").addEventListener("click", async () => {
-      if (!confirm("Excluir essa tarefa?")) return;
-      const { error } = await window.supabaseClient.from("demandas").delete().eq("id", tarefa.id);
-      if (error) {
-        mostrarMsgModal("Erro ao excluir: " + error.message, true);
-        return;
-      }
-      fecharModalTarefa();
-      if (aoMudarAtual) aoMudarAtual();
-    });
+    const btnExcluir = document.getElementById("btn-excluir-modal-tarefa");
+    if (btnExcluir) {
+      btnExcluir.addEventListener("click", async () => {
+        if (!confirm("Excluir essa tarefa?")) return;
+        const { error } = await window.supabaseClient.from("demandas").delete().eq("id", tarefa.id);
+        if (error) {
+          mostrarMsgModal("Erro ao excluir: " + error.message, true);
+          return;
+        }
+        fecharModalTarefa();
+        if (aoMudarAtual) aoMudarAtual();
+      });
+    }
 
     document.getElementById("btn-salvar-modal-tarefa").addEventListener("click", async () => {
       const titulo = overlay.querySelector(".input-titulo-modal").value.trim();
@@ -328,9 +375,28 @@
       const inputData = overlay.querySelector(".input-data-modal");
       const inputHora = overlay.querySelector(".input-hora-modal");
       const inputPrazo = overlay.querySelector(".input-prazo-modal");
+      const inputPrazoProducao = overlay.querySelector(".input-prazo-producao-modal");
       if (inputData) payload.data_publicacao = inputData.value || null;
       if (inputHora) payload.hora_publicacao = inputHora.value || null;
       if (inputPrazo) payload.prazo_pacote = inputPrazo.value || null;
+      if (inputPrazoProducao) payload.prazo_producao = inputPrazoProducao.value || null;
+
+      if (isNovo) {
+        payload.client_id = tarefa.client_id;
+        payload.week_id = tarefa.week_id;
+        payload.bloco = tarefa.bloco;
+        payload.status = tarefa.status || "pendente";
+        payload.recorrente_id = null;
+
+        const { error } = await window.supabaseClient.from("demandas").insert(payload);
+        if (error) {
+          mostrarMsgModal("Erro ao criar: " + error.message, true);
+          return;
+        }
+        fecharModalTarefa();
+        if (aoMudarAtual) aoMudarAtual();
+        return;
+      }
 
       const { error } = await window.supabaseClient.from("demandas").update(payload).eq("id", tarefa.id);
       if (error) {
