@@ -91,6 +91,28 @@ Isso é só um cadastro de nomes para organizar quem é responsável por cada
 tarefa — não tem relação com o acesso ao sistema (isso é controlado pelo
 token do GitHub de cada um, ver "Acesso" acima).
 
+## Acessos e senhas
+
+No topo da página de cada cliente tem um painel **"Acessos e senhas"**
+(fechado por padrão, só clicar pra abrir) pra centralizar os logins das
+contas daquele cliente — Facebook, Instagram, CRM, e-mail, ou qualquer
+outra ferramenta. Cada acesso tem Serviço, Login, Senha e uma Observação
+opcional; a senha fica mascarada na lista e só aparece em texto ao clicar
+em "Mostrar".
+
+**Importante sobre segurança:** assim como o resto do sistema, esses dados
+ficam guardados como texto simples no repositório de dados do GitHub (ver
+"Como funciona o banco de dados" acima) — por isso é essencial que esse
+repositório seja **privado** e separado do repositório do site, com acesso
+restrito só à equipe. Mesmo assim, vale lembrar que o Git guarda histórico:
+se uma senha salva aqui for trocada depois, a senha antiga continua
+recuperável no histórico de commits do repositório para quem já teve (ou
+tiver no futuro) acesso de leitura a ele. Então, ao trocar uma senha de
+verdade numa rede social ou ferramenta, o ideal é também atualizar aqui
+(pra não ficar com a informação desatualizada), mas sem contar com o
+histórico do repositório como um cofre — pense nele como um "quadro de
+avisos" da senha atual, não como um gerenciador de senhas de verdade.
+
 ## Estrutura do projeto
 
 ```
@@ -110,9 +132,10 @@ assets/logo.png            Logo usado como ícone do site
 ```
 
 Não existe pasta `data/` nem schema para criar antes de usar — os arquivos
-`data/clients.json`, `data/weeks.json`, `data/demandas.json` e
-`data/colaboradores.json` são criados automaticamente no repositório de
-dados na primeira vez que alguém salva algo.
+`data/clients.json`, `data/weeks.json`, `data/demandas.json`,
+`data/colaboradores.json`, `data/recorrentes.json` e `data/acessos.json`
+são criados automaticamente no repositório de dados na primeira vez que
+alguém salva algo.
 
 ## 1. Criar o repositório de dados no GitHub
 

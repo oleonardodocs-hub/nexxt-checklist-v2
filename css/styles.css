@@ -668,6 +668,55 @@ a { color: inherit; }
   margin-bottom: 12px;
 }
 
+.acessos-card {
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  padding: 14px 16px;
+  margin-bottom: 16px;
+}
+.acessos-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.acessos-head h3 {
+  font-size: 14px;
+  margin: 0;
+}
+.acessos-lista .acesso-item:last-child { margin-bottom: 0; }
+.acesso-item {
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  background: var(--surface-1);
+}
+.acesso-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 13px;
+}
+.acesso-servico {
+  font-weight: 700;
+  min-width: 90px;
+}
+.acesso-dado {
+  color: var(--text-secondary);
+}
+.acesso-senha {
+  font-family: var(--mono-font, monospace);
+  letter-spacing: 1px;
+}
+.btn-mini {
+  padding: 2px 8px;
+  font-size: 11px;
+  min-height: auto;
+}
+
 .badge-horario {
   display: inline-flex;
   align-items: center;

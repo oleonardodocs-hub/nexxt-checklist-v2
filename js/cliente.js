@@ -29,6 +29,9 @@ let estado = {
   demandas: [],
   recorrentes: [],
   colaboradores: [],
+  acessos: [],
+  acessosAbertos: false,
+  erroAcessos: null,
   weekTabSelecionada: null, // id da semana, "pacote" ou "historico"
   historicoMes: null, // "AAAA-MM" selecionado dentro do Histórico
 };
@@ -139,8 +142,25 @@ async function carregarTudo() {
   document.title = cliente.nome + " · Gestão de Mídias Sociais";
 
   await carregarSemanasEDemandas();
+  await carregarAcessos();
   renderClientSwitcher();
   renderWeekTabs();
+  renderAcessos();
+}
+
+// Acessos (logins/senhas de redes sociais, CRM, e-mail etc.) são
+// carregados à parte das demandas -- é informação de outra natureza, não
+// precisa recarregar sempre que uma tarefa muda de status.
+async function carregarAcessos() {
+  const { data, error } = await window.supabaseClient.from("acessos").select("*").eq("client_id", estado.clientId).order("servico");
+  if (error) {
+    console.error(error);
+    estado.acessos = [];
+    estado.erroAcessos = error.message;
+    return;
+  }
+  estado.acessos = data || [];
+  estado.erroAcessos = null;
 }
 
 async function carregarSemanasEDemandas() {
@@ -281,6 +301,222 @@ async function atualizarCorCliente(slot) {
   const clienteNaLista = estado.clients.find((c) => c.id === estado.clientId);
   if (clienteNaLista) clienteNaLista.cor = slot;
   renderClientSwitcher();
+}
+
+// ------------------------------------------------------------------
+// Acessos e senhas (logins de redes sociais, CRM, e-mail etc. do cliente)
+// ------------------------------------------------------------------
+
+// Fechado por padrão sempre que a página carrega, pra senha nenhuma ficar
+// visível de cara pra quem só está passando o olho na tela.
+function renderAcessos() {
+  const el = document.getElementById("acessos-section");
+  if (!el) return;
+
+  if (!estado.acessosAbertos) {
+    el.innerHTML = `
+      <button class="btn btn-ghost" id="btn-toggle-acessos" style="margin:0 0 14px;">
+        Acessos e senhas${estado.acessos.length ? ` (${estado.acessos.length})` : ""}
+      </button>
+    `;
+    document.getElementById("btn-toggle-acessos").addEventListener("click", () => {
+      estado.acessosAbertos = true;
+      renderAcessos();
+    });
+    return;
+  }
+
+  if (estado.erroAcessos) {
+    el.innerHTML = `
+      <div class="acessos-card">
+        <div class="acessos-head">
+          <h3>Acessos e senhas</h3>
+          <button class="btn btn-ghost" id="btn-fechar-acessos">Fechar</button>
+        </div>
+        ${htmlErroDeCarregamento(estado.erroAcessos)}
+      </div>
+    `;
+    document.getElementById("btn-fechar-acessos").addEventListener("click", () => {
+      estado.acessosAbertos = false;
+      renderAcessos();
+    });
+    ligarBotaoCorrigirToken();
+    return;
+  }
+
+  const linhas =
+    estado.acessos.map((a) => renderAcessoItem(a)).join("") ||
+    '<p class="empty-state" style="padding:18px 0;">Nenhum acesso cadastrado ainda.</p>';
+
+  el.innerHTML = `
+    <div class="acessos-card">
+      <div class="acessos-head">
+        <h3>Acessos e senhas</h3>
+        <button class="btn btn-ghost" id="btn-fechar-acessos">Fechar</button>
+      </div>
+      <div class="acessos-lista">${linhas}</div>
+      <button class="btn btn-ghost" id="btn-abrir-form-acesso" style="width:100%; margin-top:10px;">+ Adicionar acesso</button>
+      <div class="add-form" id="form-acesso">
+        ${camposAcessoHTML(null)}
+        <button class="btn btn-primary" id="btn-salvar-acesso">Salvar acesso</button>
+        <button class="btn btn-ghost" id="btn-cancelar-acesso">Cancelar</button>
+      </div>
+    </div>
+  `;
+
+  ligarEventosAcessos();
+}
+
+function camposAcessoHTML(acesso) {
+  acesso = acesso || {};
+  return `
+    <div class="grid-2">
+      <div class="field">
+        <label>Serviço</label>
+        <input type="text" class="input-acesso-servico" placeholder="Ex: Facebook, Instagram, CRM, E-mail" value="${escapeHtml(acesso.servico || "")}" />
+      </div>
+      <div class="field">
+        <label>Login / usuário</label>
+        <input type="text" class="input-acesso-login" value="${escapeHtml(acesso.login || "")}" />
+      </div>
+    </div>
+    <div class="field">
+      <label>Senha</label>
+      <input type="text" class="input-acesso-senha" value="${escapeHtml(acesso.senha || "")}" />
+    </div>
+    <div class="field">
+      <label>Observação (opcional)</label>
+      <input type="text" class="input-acesso-obs" placeholder="Ex: código de verificação vai no e-mail da agência" value="${escapeHtml(acesso.observacao || "")}" />
+    </div>
+  `;
+}
+
+function renderAcessoItem(a) {
+  return `
+    <div class="acesso-item" data-id="${a.id}">
+      <div class="acesso-info">
+        <span class="acesso-servico">${escapeHtml(a.servico)}</span>
+        <span class="acesso-dado">${escapeHtml(a.login || "Sem login definido")}</span>
+        <span class="acesso-dado acesso-senha" data-senha="${escapeHtml(a.senha || "")}">${a.senha ? "••••••••" : "Sem senha definida"}</span>
+        ${a.senha ? `<button type="button" class="btn btn-ghost btn-mini" data-acao="mostrar-senha">Mostrar</button>` : ""}
+      </div>
+      ${a.observacao ? `<div class="demanda-meta">${escapeHtml(a.observacao)}</div>` : ""}
+      <div class="demanda-controls">
+        <button class="btn btn-ghost" data-acao="editar-acesso" data-id="${a.id}">Editar</button>
+        <button class="btn btn-ghost" data-acao="excluir-acesso" data-id="${a.id}" style="margin-left:auto;">Excluir</button>
+      </div>
+      <div class="add-form" data-edit-acesso="${a.id}">
+        ${camposAcessoHTML(a)}
+        <button class="btn btn-primary" data-acao="salvar-edicao-acesso" data-id="${a.id}">Salvar alterações</button>
+        <button class="btn btn-ghost" data-acao="fechar-edicao-acesso" data-id="${a.id}">Cancelar</button>
+      </div>
+    </div>
+  `;
+}
+
+function ligarEventosAcessos() {
+  const el = document.getElementById("acessos-section");
+
+  document.getElementById("btn-fechar-acessos").addEventListener("click", () => {
+    estado.acessosAbertos = false;
+    renderAcessos();
+  });
+
+  const btnAbrirForm = document.getElementById("btn-abrir-form-acesso");
+  if (btnAbrirForm) {
+    btnAbrirForm.addEventListener("click", () => {
+      document.getElementById("form-acesso").classList.toggle("open");
+    });
+    document.getElementById("btn-cancelar-acesso").addEventListener("click", () => {
+      document.getElementById("form-acesso").classList.remove("open");
+    });
+    document.getElementById("btn-salvar-acesso").addEventListener("click", salvarAcesso);
+  }
+
+  el.querySelectorAll('[data-acao="mostrar-senha"]').forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const span = btn.previousElementSibling;
+      if (!span || !span.classList.contains("acesso-senha")) return;
+      const oculta = span.textContent.trim() === "••••••••";
+      span.textContent = oculta ? span.dataset.senha : "••••••••";
+      btn.textContent = oculta ? "Ocultar" : "Mostrar";
+    });
+  });
+
+  el.querySelectorAll('[data-acao="editar-acesso"]').forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.querySelector(`[data-edit-acesso="${btn.dataset.id}"]`).classList.toggle("open");
+    });
+  });
+  el.querySelectorAll('[data-acao="fechar-edicao-acesso"]').forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.querySelector(`[data-edit-acesso="${btn.dataset.id}"]`).classList.remove("open");
+    });
+  });
+  el.querySelectorAll('[data-acao="salvar-edicao-acesso"]').forEach((btn) => {
+    btn.addEventListener("click", () => salvarEdicaoAcesso(btn.dataset.id));
+  });
+  el.querySelectorAll('[data-acao="excluir-acesso"]').forEach((btn) => {
+    btn.addEventListener("click", () => excluirAcesso(btn.dataset.id));
+  });
+}
+
+async function salvarAcesso() {
+  const form = document.getElementById("form-acesso");
+  const servico = form.querySelector(".input-acesso-servico").value.trim();
+  if (!servico) {
+    mostrarToast("Diga qual é o serviço (ex: Facebook, Instagram).");
+    return;
+  }
+  const payload = {
+    client_id: estado.clientId,
+    servico,
+    login: form.querySelector(".input-acesso-login").value.trim() || null,
+    senha: form.querySelector(".input-acesso-senha").value || null,
+    observacao: form.querySelector(".input-acesso-obs").value.trim() || null,
+  };
+  const { error } = await window.supabaseClient.from("acessos").insert(payload);
+  if (error) {
+    mostrarToast("Erro ao salvar: " + error.message);
+    return;
+  }
+  mostrarToast("Acesso adicionado.");
+  await carregarAcessos();
+  renderAcessos();
+}
+
+async function salvarEdicaoAcesso(id) {
+  const form = document.querySelector(`[data-edit-acesso="${id}"]`);
+  const servico = form.querySelector(".input-acesso-servico").value.trim();
+  if (!servico) {
+    mostrarToast("Diga qual é o serviço.");
+    return;
+  }
+  const payload = {
+    servico,
+    login: form.querySelector(".input-acesso-login").value.trim() || null,
+    senha: form.querySelector(".input-acesso-senha").value || null,
+    observacao: form.querySelector(".input-acesso-obs").value.trim() || null,
+  };
+  const { error } = await window.supabaseClient.from("acessos").update(payload).eq("id", id);
+  if (error) {
+    mostrarToast("Erro ao salvar: " + error.message);
+    return;
+  }
+  mostrarToast("Acesso atualizado.");
+  await carregarAcessos();
+  renderAcessos();
+}
+
+async function excluirAcesso(id) {
+  if (!confirm("Excluir esse acesso?")) return;
+  const { error } = await window.supabaseClient.from("acessos").delete().eq("id", id);
+  if (error) {
+    mostrarToast("Erro ao excluir: " + error.message);
+    return;
+  }
+  await carregarAcessos();
+  renderAcessos();
 }
 
 // ------------------------------------------------------------------
