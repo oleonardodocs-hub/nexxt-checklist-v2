@@ -243,6 +243,7 @@ async function garantirRecorrentesNasSemanas(weekIds) {
         tipo_publicacao: r.tipo_publicacao,
         responsavel_id: r.responsavel_id,
         link: r.link,
+        link_referencia: r.link_referencia,
         hora_publicacao: r.hora_publicacao,
         categoria: categoriaDaTarefa(r),
         status: "pendente",
@@ -837,6 +838,11 @@ function camposTarefaHTML(isPacote, item, bloco) {
       </div>
     </div>
     <div class="field">
+      <label>Link do modelo de referência</label>
+      <input type="url" class="input-link-referencia" placeholder="https://..." value="${escapeHtml(item.link_referencia || "")}" />
+      <p class="field-hint">O modelo/referência a seguir pra produzir essa publicação.</p>
+    </div>
+    <div class="field">
       <label>Link (arte pronta no CRM)</label>
       <input type="url" class="input-link" placeholder="https://..." value="${escapeHtml(item.link || "")}" />
     </div>
@@ -863,6 +869,7 @@ function renderDemandaItem(item, isPacote, semana) {
   if (item.tipo_publicacao === "manual") metaBits.push("Manual");
   if (item.data_publicacao) metaBits.push(formatarDataCurta(item.data_publicacao));
   if (item.prazo_pacote) metaBits.push("Prazo: " + formatarDataCurta(item.prazo_pacote));
+  if (item.link_referencia) metaBits.push(`<a href="${escapeHtml(item.link_referencia)}" target="_blank" rel="noopener">Ver modelo</a>`);
   if (item.link) metaBits.push(`<a href="${escapeHtml(item.link)}" target="_blank" rel="noopener">Ver arte</a>`);
 
   const corCliente = corClienteParaCSS(estado.cliente ? estado.cliente.cor : null);
@@ -1042,6 +1049,7 @@ async function salvarTarefa(bloco, weekId) {
   const tipoPublicacao = form.querySelector(".input-tipo").value;
   const responsavelId = form.querySelector(".input-responsavel").value || null;
   const link = form.querySelector(".input-link").value.trim() || null;
+  const linkReferencia = form.querySelector(".input-link-referencia").value.trim() || null;
   const inputCategoria = form.querySelector(".input-categoria");
   const categoria = inputCategoria ? inputCategoria.value : "social";
 
@@ -1063,6 +1071,7 @@ async function salvarTarefa(bloco, weekId) {
       tipo_publicacao: tipoPublicacao,
       responsavel_id: responsavelId,
       link,
+      link_referencia: linkReferencia,
       hora_publicacao: horaPublicacao,
       categoria,
       ativo: true,
@@ -1083,6 +1092,7 @@ async function salvarTarefa(bloco, weekId) {
     tipo_publicacao: tipoPublicacao,
     responsavel_id: responsavelId,
     link,
+    link_referencia: linkReferencia,
     categoria,
     status: "pendente",
     recorrente_id: recorrenteId,
@@ -1117,6 +1127,7 @@ async function salvarEdicaoTarefa(id) {
     tipo_publicacao: form.querySelector(".input-tipo").value,
     responsavel_id: form.querySelector(".input-responsavel").value || null,
     link: form.querySelector(".input-link").value.trim() || null,
+    link_referencia: form.querySelector(".input-link-referencia").value.trim() || null,
   };
 
   const inputCategoria = form.querySelector(".input-categoria");

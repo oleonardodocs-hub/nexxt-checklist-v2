@@ -173,6 +173,11 @@
             </div>
           </div>
           <div class="field">
+            <label>Link do modelo de referência</label>
+            <input type="url" class="input-link-referencia-modal" placeholder="https://..." value="${escaparHtml(tarefa.link_referencia || "")}" />
+            <p class="field-hint">O modelo/referência a seguir pra produzir essa publicação.</p>
+          </div>
+          <div class="field">
             <label>Link (arte pronta no CRM)</label>
             <input type="url" class="input-link-modal" placeholder="https://..." value="${escaparHtml(tarefa.link || "")}" />
           </div>
@@ -247,6 +252,7 @@
         tipo_publicacao: overlay.querySelector(".input-tipo-modal").value,
         responsavel_id: overlay.querySelector(".input-responsavel-modal").value || null,
         link: overlay.querySelector(".input-link-modal").value.trim() || null,
+        link_referencia: overlay.querySelector(".input-link-referencia-modal").value.trim() || null,
       };
       const inputCategoria = overlay.querySelector(".input-categoria-modal");
       if (inputCategoria) payload.categoria = inputCategoria.value;
