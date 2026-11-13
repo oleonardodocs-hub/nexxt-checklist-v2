@@ -349,7 +349,7 @@ function renderChecklistHoje(lista, diaHoje, colaboradoresPorId) {
             ${item.tipo_publicacao === "manual" ? '<span class="demanda-meta">Manual</span>' : ""}
             ${item.responsavel_id && colaboradoresPorId[item.responsavel_id] ? `<span class="demanda-meta">${escapeHtml(colaboradoresPorId[item.responsavel_id])}</span>` : ""}
             <button class="btn btn-primary" data-marcar-feito="${item.id}" style="margin-left:auto;">Marcar como feito</button>
-            <a class="btn btn-ghost" href="cliente.html?id=${cliente.id}">Abrir</a>
+            <button type="button" class="btn btn-ghost" data-abrir-tarefa="${item.id}">Abrir</button>
           </div>
         </div>
       `;
@@ -370,6 +370,12 @@ function renderChecklistHoje(lista, diaHoje, colaboradoresPorId) {
         return;
       }
       await carregarDados();
+    });
+  });
+
+  el.querySelectorAll("[data-abrir-tarefa]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      abrirModalTarefa(btn.dataset.abrirTarefa, { aoMudar: carregarDados });
     });
   });
 }
