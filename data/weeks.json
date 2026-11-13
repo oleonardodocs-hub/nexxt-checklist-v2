@@ -35,5 +35,12 @@
     "client_id": "8505b112-a738-43d4-bd05-73e842b8c60f",
     "semana_inicio": "2026-11-16",
     "status": "disponivel"
+  },
+  {
+    "id": "383c60bc-a11c-4c0d-b0ee-f20a146237a3",
+    "created_at": "2026-11-13T13:11:25.325Z",
+    "client_id": "8505b112-a738-43d4-bd05-73e842b8c60f",
+    "semana_inicio": "2026-11-23",
+    "status": "aguardando_validacao"
   }
 ]
