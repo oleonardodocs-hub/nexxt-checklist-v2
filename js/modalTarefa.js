@@ -98,89 +98,98 @@
     const horaVal = tarefa.hora_publicacao ? tarefa.hora_publicacao.slice(0, 5) : "";
     const tipo = tarefa.tipo_publicacao || "agendada";
 
+    const corCliente = cliente ? corClienteParaCSS(cliente.cor) : null;
+
     overlay.innerHTML = `
-      <div class="modal-card">
+      <div class="modal-card" style="${corCliente ? `--client-color:${corCliente}` : ""}">
         <div class="modal-card-head">
           <div>
-            ${cliente ? `<span class="client-tag"><span class="tab-status-dot" style="background:${corClienteParaCSS(cliente.cor)};"></span>${escaparHtml(cliente.nome)}</span>` : ""}
-            <h3 style="margin:6px 0 0;">${escaparHtml(tarefa.titulo)}</h3>
+            ${cliente ? `<span class="client-tag"><span class="tab-status-dot"></span>${escaparHtml(cliente.nome)}</span>` : ""}
+            <h3 style="margin:8px 0 0;">${escaparHtml(tarefa.titulo)}</h3>
+            <div class="modal-card-head-tags">
+              <span class="pill" id="pill-status-modal">${NOME_STATUS_MODAL[tarefa.status] || tarefa.status}</span>
+              ${categoria === "diaria" ? '<span class="pill">Tarefa diária</span>' : ""}
+              ${tarefa.recorrente_id ? '<span class="pill">Recorrente</span>' : ""}
+            </div>
           </div>
-          <button type="button" class="btn btn-ghost" id="btn-fechar-modal-tarefa">Fechar</button>
+          <button type="button" class="modal-close-btn" id="btn-fechar-modal-tarefa" aria-label="Fechar" title="Fechar">✕</button>
         </div>
 
-        ${
-          tarefa.recorrente_id
-            ? `<div class="aviso-recorrente">
-                <span>Essa tarefa se repete toda ${NOME_DIA_MODAL[tarefa.bloco] || ""}.</span>
-                <button type="button" class="btn btn-ghost" id="btn-parar-recorrencia-modal" data-recorrente-id="${tarefa.recorrente_id}">Parar de repetir</button>
-              </div>`
-            : ""
-        }
+        <div class="modal-card-body">
+          ${
+            tarefa.recorrente_id
+              ? `<div class="aviso-recorrente">
+                  <span>Essa tarefa se repete toda ${NOME_DIA_MODAL[tarefa.bloco] || ""}.</span>
+                  <button type="button" class="btn btn-ghost" id="btn-parar-recorrencia-modal" data-recorrente-id="${tarefa.recorrente_id}">Parar de repetir</button>
+                </div>`
+              : ""
+          }
 
-        <div class="field">
-          <label>Status</label>
-          <select class="input-status-modal">
-            ${Object.entries(NOME_STATUS_MODAL)
-              .map(([valor, nome]) => `<option value="${valor}" ${valor === tarefa.status ? "selected" : ""}>${nome}</option>`)
-              .join("")}
-          </select>
-        </div>
-
-        <div class="field">
-          <label>Tarefa</label>
-          <input type="text" class="input-titulo-modal" value="${escaparHtml(tarefa.titulo || "")}" />
-        </div>
-        <div class="field">
-          <label>Descrição (o que é e como deve ser feito)</label>
-          <textarea class="input-descricao-modal" rows="3" placeholder="Opcional">${escaparHtml(tarefa.descricao || "")}</textarea>
-        </div>
-        ${
-          !isPacote
-            ? `<div class="field">
-                <label>Tipo de demanda</label>
-                <select class="input-categoria-modal">
-                  <option value="social" ${categoria === "social" ? "selected" : ""}>Mídia social</option>
-                  <option value="diaria" ${categoria === "diaria" ? "selected" : ""}>Tarefa diária</option>
-                </select>
-                <p class="field-hint">Mídia social entra no progresso da semana. Tarefa diária entra só no progresso do dia.</p>
-              </div>`
-            : ""
-        }
-        <div class="grid-2">
           <div class="field">
-            <label>Tipo de publicação</label>
-            <select class="input-tipo-modal">
-              <option value="agendada" ${tipo === "agendada" ? "selected" : ""}>Agendada</option>
-              <option value="manual" ${tipo === "manual" ? "selected" : ""}>Manual (subir na hora)</option>
-            </select>
-          </div>
-          <div class="field">
-            <label>Responsável</label>
-            <select class="input-responsavel-modal">
-              <option value="">Sem responsável definido</option>
-              ${colaboradores
-                .map((c) => `<option value="${c.id}" ${c.id === tarefa.responsavel_id ? "selected" : ""}>${escaparHtml(c.nome)}${c.funcao ? ` (${escaparHtml(c.funcao)})` : ""}</option>`)
+            <label>Status</label>
+            <select class="input-status-modal">
+              ${Object.entries(NOME_STATUS_MODAL)
+                .map(([valor, nome]) => `<option value="${valor}" ${valor === tarefa.status ? "selected" : ""}>${nome}</option>`)
                 .join("")}
             </select>
           </div>
-        </div>
-        <div class="field">
-          <label>Link (arte pronta no CRM)</label>
-          <input type="url" class="input-link-modal" placeholder="https://..." value="${escaparHtml(tarefa.link || "")}" />
-        </div>
-        ${
-          isPacote
-            ? `<div class="field"><label>Prazo do pacote</label><input type="date" class="input-prazo-modal" value="${tarefa.prazo_pacote || ""}" /></div>`
-            : `<div class="grid-2">
-                <div class="field"><label>Data</label><input type="date" class="input-data-modal" value="${tarefa.data_publicacao || ""}" /></div>
-                <div class="field"><label>Hora</label><input type="time" class="input-hora-modal" value="${horaVal}" /></div>
-              </div>`
-        }
 
-        <p class="form-msg" id="msg-modal-tarefa"></p>
+          <div class="field">
+            <label>Tarefa</label>
+            <input type="text" class="input-titulo-modal" value="${escaparHtml(tarefa.titulo || "")}" />
+          </div>
+          <div class="field">
+            <label>Descrição (o que é e como deve ser feito)</label>
+            <textarea class="input-descricao-modal" rows="3" placeholder="Opcional">${escaparHtml(tarefa.descricao || "")}</textarea>
+          </div>
+          ${
+            !isPacote
+              ? `<div class="field">
+                  <label>Tipo de demanda</label>
+                  <select class="input-categoria-modal">
+                    <option value="social" ${categoria === "social" ? "selected" : ""}>Mídia social</option>
+                    <option value="diaria" ${categoria === "diaria" ? "selected" : ""}>Tarefa diária</option>
+                  </select>
+                  <p class="field-hint">Mídia social entra no progresso da semana. Tarefa diária entra só no progresso do dia.</p>
+                </div>`
+              : ""
+          }
+          <div class="grid-2">
+            <div class="field">
+              <label>Tipo de publicação</label>
+              <select class="input-tipo-modal">
+                <option value="agendada" ${tipo === "agendada" ? "selected" : ""}>Agendada</option>
+                <option value="manual" ${tipo === "manual" ? "selected" : ""}>Manual (subir na hora)</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Responsável</label>
+              <select class="input-responsavel-modal">
+                <option value="">Sem responsável definido</option>
+                ${colaboradores
+                  .map((c) => `<option value="${c.id}" ${c.id === tarefa.responsavel_id ? "selected" : ""}>${escaparHtml(c.nome)}${c.funcao ? ` (${escaparHtml(c.funcao)})` : ""}</option>`)
+                  .join("")}
+              </select>
+            </div>
+          </div>
+          <div class="field">
+            <label>Link (arte pronta no CRM)</label>
+            <input type="url" class="input-link-modal" placeholder="https://..." value="${escaparHtml(tarefa.link || "")}" />
+          </div>
+          ${
+            isPacote
+              ? `<div class="field"><label>Prazo do pacote</label><input type="date" class="input-prazo-modal" value="${tarefa.prazo_pacote || ""}" /></div>`
+              : `<div class="grid-2">
+                  <div class="field"><label>Data</label><input type="date" class="input-data-modal" value="${tarefa.data_publicacao || ""}" /></div>
+                  <div class="field"><label>Hora</label><input type="time" class="input-hora-modal" value="${horaVal}" /></div>
+                </div>`
+          }
+
+          <p class="form-msg" id="msg-modal-tarefa"></p>
+        </div>
 
         <div class="modal-card-footer">
-          <button type="button" class="btn btn-ghost" id="btn-excluir-modal-tarefa">Excluir tarefa</button>
+          <button type="button" class="btn btn-perigo-ghost" id="btn-excluir-modal-tarefa">Excluir tarefa</button>
           <button type="button" class="btn btn-primary" id="btn-salvar-modal-tarefa" style="margin-left:auto;">Salvar alterações</button>
         </div>
       </div>
@@ -195,6 +204,8 @@
         return;
       }
       tarefa.status = ev.target.value;
+      const pillStatus = document.getElementById("pill-status-modal");
+      if (pillStatus) pillStatus.textContent = NOME_STATUS_MODAL[tarefa.status] || tarefa.status;
       mostrarMsgModal("Status atualizado.", false);
       if (aoMudarAtual) aoMudarAtual();
     });

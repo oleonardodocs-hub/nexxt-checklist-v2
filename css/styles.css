@@ -980,22 +980,73 @@ a { color: inherit; }
   background: var(--surface-2);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-card);
-  padding: 20px 22px;
   margin-bottom: 40px;
+  overflow: hidden;
 }
 .modal-card-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 14px;
+  padding: 20px 22px;
+  background: linear-gradient(135deg, var(--client-color, var(--accent)) 0%, color-mix(in srgb, var(--client-color, var(--accent)) 70%, #0b0b0b 25%) 100%);
+  color: #ffffff;
 }
+.modal-card-head .client-tag {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.35);
+  color: #ffffff;
+}
+.modal-card-head .client-tag .tab-status-dot { background: #ffffff !important; }
 .modal-card-head h3 {
+  font-size: 17px;
+  color: #ffffff;
+}
+.modal-card-head-tags {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.modal-card-head-tags .pill {
+  background: rgba(255, 255, 255, 0.22);
+  color: #ffffff;
+}
+.modal-close-btn {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  border: none;
+  background: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
   font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background .15s ease, transform .05s ease;
+}
+.modal-close-btn:hover { background: rgba(255, 255, 255, 0.32); }
+.modal-close-btn:active { transform: translateY(1px); }
+.modal-card-body {
+  padding: 20px 22px;
 }
 .modal-card-footer {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-top: 4px;
+  padding: 14px 22px;
+  border-top: 1px solid var(--border-hairline);
+  background: var(--surface-1);
+}
+.btn-perigo-ghost {
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--status-critical) 45%, transparent);
+  color: var(--status-critical);
+}
+.btn-perigo-ghost:hover {
+  background: color-mix(in srgb, var(--status-critical) 12%, transparent);
 }
