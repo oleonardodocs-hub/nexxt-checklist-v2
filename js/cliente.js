@@ -315,8 +315,9 @@ function renderAcessos() {
 
   if (!estado.acessosAbertos) {
     el.innerHTML = `
-      <button class="btn btn-ghost" id="btn-toggle-acessos" style="margin:0 0 14px;">
-        Acessos e senhas${estado.acessos.length ? ` (${estado.acessos.length})` : ""}
+      <button class="btn btn-ghost btn-toggle-acessos-fechado" id="btn-toggle-acessos" style="margin:0 0 14px;">
+        <span class="icone-chave-badge">${SVG_CHAVE}</span>
+        Acessos e senhas${estado.acessos.length ? ` <span class="acessos-contador">${estado.acessos.length}</span>` : ""}
       </button>
     `;
     document.getElementById("btn-toggle-acessos").addEventListener("click", () => {
@@ -330,7 +331,7 @@ function renderAcessos() {
     el.innerHTML = `
       <div class="acessos-card">
         <div class="acessos-head">
-          <h3>Acessos e senhas</h3>
+          <h3><span class="icone-chave-badge">${SVG_CHAVE}</span>Acessos e senhas</h3>
           <button class="btn btn-ghost" id="btn-fechar-acessos">Fechar</button>
         </div>
         ${htmlErroDeCarregamento(estado.erroAcessos)}
@@ -351,7 +352,7 @@ function renderAcessos() {
   el.innerHTML = `
     <div class="acessos-card">
       <div class="acessos-head">
-        <h3>Acessos e senhas</h3>
+        <h3><span class="icone-chave-badge">${SVG_CHAVE}</span>Acessos e senhas</h3>
         <button class="btn btn-ghost" id="btn-fechar-acessos">Fechar</button>
       </div>
       <div class="acessos-lista">${linhas}</div>
@@ -809,9 +810,10 @@ function camposTarefaHTML(isPacote, item, bloco) {
         ? `<div class="field">
             <label>Tipo de demanda</label>
             <select class="input-categoria">
-              <option value="social" ${categoria === "social" ? "selected" : ""}>Mídia social (conteúdo pra postar -- entra no progresso da semana)</option>
-              <option value="diaria" ${categoria === "diaria" ? "selected" : ""}>Tarefa diária (operacional -- entra no progresso do dia, não no da semana)</option>
+              <option value="social" ${categoria === "social" ? "selected" : ""}>Mídia social</option>
+              <option value="diaria" ${categoria === "diaria" ? "selected" : ""}>Tarefa diária</option>
             </select>
+            <p class="field-hint">Mídia social entra no progresso da semana. Tarefa diária entra só no progresso do dia.</p>
           </div>`
         : ""
     }

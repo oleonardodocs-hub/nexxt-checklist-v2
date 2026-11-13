@@ -146,7 +146,14 @@ com o site do GitHub Pages sendo público. Repositório privado funciona
 normalmente com a Contents API, só exige que o token de cada pessoa tenha
 acesso a ele.
 
-1. Crie o repositório no GitHub (vazio, sem precisar adicionar nada nele).
+1. Crie o repositório no GitHub marcando a opção **"Add a README file"**
+   na própria tela de criação (ou, se já criou sem marcar isso, entre no
+   repositório e crie um arquivo qualquer direto pela interface do GitHub
+   depois). Isso é necessário porque a API usada pelo sistema só consegue
+   gravar `data/*.json` numa branch que já tenha pelo menos um commit; um
+   repositório 100% vazio (sem nenhum commit) ainda não tem a branch
+   `main` criada, e a primeira tentativa de salvar algo no site falha com
+   erro 404.
 2. Em **Settings > Collaborators**, adicione cada pessoa da equipe que vai
    usar o sistema, com permissão de escrita (**Write**).
 

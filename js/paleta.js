@@ -72,6 +72,12 @@ function tarefaAtrasada(item, dataEfetiva) {
 const SVG_RELOGIO =
   '<svg class="icone-relogio" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M12 7v5l3.2 2"/></svg>';
 
+// Ícone de chave (SVG embutido, herda a cor ao redor) usado no cabeçalho do
+// painel de "Acessos e senhas", só pra dar uma identidade visual mais
+// amigável pra aquele bloco.
+const SVG_CHAVE =
+  '<svg class="icone-chave" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="5.5"/><path d="M11 11.5 20.5 2M15 7l2.5 2.5M18.5 3.5 21 6"/></svg>';
+
 // Toda demanda é "social" (conteúdo de mídia social, linha editorial) ou
 // "diaria" (tarefa operacional, pode se repetir várias vezes no mesmo
 // dia). Tarefas antigas sem esse campo contam como "social", que é o uso
