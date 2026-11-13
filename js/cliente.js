@@ -582,18 +582,23 @@ function renderWeekTabs() {
 }
 
 // Prévia da próxima semana: um bloco à parte, acima do pipeline, com um
-// cartãozinho por dia (segunda a sexta) da semana "aguardando_validacao"
-// (a próxima a ser apresentada e validada na sexta-feira). Fica verde
-// quando a tarefa principal de mídia social daquele dia já está aprovada
-// (validada/publicada) e vermelho enquanto não estiver -- inclusive quando
-// ainda nem foi criada --, pra dar uma visão rápida de "a semana que vem
-// já está pronta?". O prazo mostrado é sempre a quinta-feira daquela
+// cartãozinho por dia (segunda a sexta) da semana seguinte à atual NO
+// CALENDÁRIO (segunda-feira de hoje + 7 dias) -- de propósito não usa o
+// status "aguardando_validacao" pra achar essa semana, porque esse status
+// pode ficar numa semana mais à frente (ex.: se uma semana "disponível"
+// no meio do caminho nunca foi validada à mão); o que o Léo quer ver aqui
+// é sempre a semana seguinte de verdade, não a próxima a ser validada.
+// Fica verde quando a tarefa principal de mídia social daquele dia já está
+// aprovada (validada/publicada) e vermelho enquanto não estiver -- inclusive
+// quando ainda nem foi criada --, pra dar uma visão rápida de "a semana que
+// vem já está pronta?". O prazo mostrado é sempre a quinta-feira daquela
 // semana (segunda-feira + 3 dias).
 function renderPreviaProximaSemana() {
   const el = document.getElementById("previa-proxima-semana");
   if (!el) return;
 
-  const semana = estado.weeks.find((w) => w.status === "aguardando_validacao" && !semanaPassada(w));
+  const inicioProximaSemana = addDias(toISODate(segundaFeiraDe(new Date())), 7);
+  const semana = estado.weeks.find((w) => w.semana_inicio === inicioProximaSemana);
   if (!semana) {
     el.style.display = "none";
     el.innerHTML = "";
@@ -629,7 +634,10 @@ function renderPreviaProximaSemana() {
   el.innerHTML = `
     <div class="previa-proxima-semana">
       <div class="previa-header">
-        <strong>Prévia da próxima semana</strong>
+        <div class="previa-header-titulo">
+          <span class="previa-icone-badge">${SVG_RELOGIO}</span>
+          <strong>Prévia da próxima semana</strong>
+        </div>
         <span class="previa-prazo">Prazo máximo: ${formatarDataLonga(prazo)}</span>
       </div>
       <div class="previa-cards">${cards}</div>
@@ -943,56 +951,41 @@ function camposTarefaHTML(isPacote, item, bloco) {
   `;
 }
 
+// Card encolhido: mostra só o essencial pra reconhecer a tarefa de relance
+// (status, título, selos) + um resuminho de uma linha só. O resto -- editar
+// qualquer campo, trocar responsável, excluir, duplicar -- fica dentro do
+// card-modal que abre ao clicar (ver js/modalTarefa.js), pra não lotar a
+// coluna do dia com formulário aberto em cada tarefa. "Aprovar" continua
+// visível aqui fora porque é a ação mais repetida no dia a dia.
 function renderDemandaItem(item, isPacote, semana) {
-  const metaBits = [];
-  if (item.tipo_publicacao === "manual") metaBits.push("Manual");
-  if (item.data_publicacao) metaBits.push(formatarDataCurta(item.data_publicacao));
-  if (item.prazo_pacote) metaBits.push("Prazo: " + formatarDataCurta(item.prazo_pacote));
-  if (item.link_referencia) metaBits.push(`<a href="${escapeHtml(item.link_referencia)}" target="_blank" rel="noopener">Ver modelo</a>`);
-  if (item.link) metaBits.push(`<a href="${escapeHtml(item.link)}" target="_blank" rel="noopener">Ver arte</a>`);
-
   const corCliente = corClienteParaCSS(estado.cliente ? estado.cliente.cor : null);
   const dataEfetiva = dataEfetivaDaTarefa(item, semana);
   const atrasada = tarefaAtrasada(item, dataEfetiva);
   const categoria = categoriaDaTarefa(item);
   const podeAprovar = categoria === "social" && item.status !== "validada" && item.status !== "publicada";
 
+  const colaborador = item.responsavel_id ? estado.colaboradores.find((c) => c.id === item.responsavel_id) : null;
+  const resumoBits = [];
+  if (colaborador) resumoBits.push(colaborador.nome);
+  if (item.tipo_publicacao === "manual") resumoBits.push("Manual");
+  if (item.data_publicacao) resumoBits.push(formatarDataCurta(item.data_publicacao));
+  if (item.prazo_pacote) resumoBits.push("Prazo: " + formatarDataCurta(item.prazo_pacote));
+  const linhaResumo = item.descricao || (resumoBits.length ? resumoBits.join(" · ") : "");
+
   return `
     <div class="demanda-item categoria-${categoria} ${atrasada ? "is-atrasada" : ""}" data-id="${item.id}" style="--client-color:${corCliente}">
-      <div class="demanda-title">
-        <span class="pill pill-${item.status}">${NOME_STATUS[item.status]}</span>
-        ${escapeHtml(item.titulo)}
-        ${categoria === "diaria" ? '<span class="badge-categoria">Diária</span>' : ""}
-        ${item.recorrente_id ? '<span class="badge-recorrente">Recorrente</span>' : ""}
-        ${badgeHorarioHTML(item, dataEfetiva, atrasada)}
-        ${atrasada ? '<span class="badge-atrasada">Atrasada</span>' : ""}
+      <div class="demanda-abrir" data-abrir-tarefa="${item.id}" role="button" tabindex="0" title="Clique para abrir e editar essa tarefa">
+        <div class="demanda-title">
+          <span class="pill pill-${item.status}">${NOME_STATUS[item.status]}</span>
+          ${escapeHtml(item.titulo)}
+          ${categoria === "diaria" ? '<span class="badge-categoria">Diária</span>' : ""}
+          ${item.recorrente_id ? '<span class="badge-recorrente">Recorrente</span>' : ""}
+          ${badgeHorarioHTML(item, dataEfetiva, atrasada)}
+          ${atrasada ? '<span class="badge-atrasada">Atrasada</span>' : ""}
+        </div>
+        ${linhaResumo ? `<div class="demanda-meta demanda-meta-resumo">${escapeHtml(linhaResumo)}</div>` : ""}
       </div>
-      ${item.descricao ? `<div class="demanda-meta" style="color:var(--text-secondary);">${escapeHtml(item.descricao)}</div>` : ""}
-      ${metaBits.length ? `<div class="demanda-meta">${metaBits.join(" · ")}</div>` : ""}
-      <div class="demanda-controls">
-        <select class="select-status" data-id="${item.id}">
-          ${Object.entries(NOME_STATUS)
-            .map(([valor, nome]) => `<option value="${valor}" ${valor === item.status ? "selected" : ""}>${nome}</option>`)
-            .join("")}
-        </select>
-        <select class="select-responsavel" data-id="${item.id}" title="Responsável">
-          <option value="">Responsável</option>
-          ${estado.colaboradores
-            .map((c) => `<option value="${c.id}" ${c.id === item.responsavel_id ? "selected" : ""}>${escapeHtml(c.nome)}</option>`)
-            .join("")}
-          <option value="__novo__">+ Novo colaborador...</option>
-        </select>
-        ${podeAprovar ? `<button class="btn btn-aprovar" data-acao="aprovar-tarefa" data-id="${item.id}">Aprovar</button>` : ""}
-        <button class="btn btn-ghost" data-acao="editar-tarefa" data-id="${item.id}">Editar</button>
-        ${!isPacote ? `<button class="btn btn-ghost" data-acao="duplicar-tarefa" data-id="${item.id}" title="Copiar essa tarefa pra próxima semana, no mesmo dia">Duplicar</button>` : ""}
-        <button class="btn btn-ghost" data-acao="excluir-tarefa" data-id="${item.id}" style="margin-left:auto;">Excluir</button>
-      </div>
-
-      <div class="add-form" data-edit-form="${item.id}">
-        ${camposTarefaHTML(isPacote, item)}
-        <button class="btn btn-primary" data-acao="salvar-edicao" data-id="${item.id}">Salvar alterações</button>
-        <button class="btn btn-ghost" data-acao="fechar-edicao" data-id="${item.id}">Cancelar</button>
-      </div>
+      ${podeAprovar ? `<button class="btn btn-aprovar btn-aprovar-encolhido" data-acao="aprovar-tarefa" data-id="${item.id}">Aprovar</button>` : ""}
     </div>
   `;
 }
@@ -1018,98 +1011,34 @@ function ligarEventosDoGrid() {
     btn.addEventListener("click", () => salvarTarefa(btn.dataset.bloco, btn.dataset.weekId || null));
   });
 
-  grid.querySelectorAll('[data-acao="editar-tarefa"]').forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const item = grid.querySelector(`.demanda-item[data-id="${btn.dataset.id}"]`);
-      item.querySelector(`[data-edit-form="${btn.dataset.id}"]`).classList.toggle("open");
+  grid.querySelectorAll(".input-responsavel").forEach(configurarSelectResponsavel);
+
+  // Card encolhido: clicar nele (ou dar Enter/Espaço com o teclado) abre a
+  // tarefa inteira no modal -- é lá que vivem editar, trocar responsável,
+  // duplicar e excluir agora.
+  grid.querySelectorAll("[data-abrir-tarefa]").forEach((el) => {
+    const abrir = () => window.abrirModalTarefa(el.dataset.abrirTarefa, { aoMudar: recarregarGrid });
+    el.addEventListener("click", abrir);
+    el.addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter" || ev.key === " ") {
+        ev.preventDefault();
+        abrir();
+      }
     });
-  });
-
-  grid.querySelectorAll('[data-acao="fechar-edicao"]').forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const item = grid.querySelector(`.demanda-item[data-id="${btn.dataset.id}"]`);
-      item.querySelector(`[data-edit-form="${btn.dataset.id}"]`).classList.remove("open");
-    });
-  });
-
-  grid.querySelectorAll('[data-acao="salvar-edicao"]').forEach((btn) => {
-    btn.addEventListener("click", () => salvarEdicaoTarefa(btn.dataset.id));
-  });
-
-  grid.querySelectorAll(".select-status").forEach((sel) => {
-    sel.addEventListener("change", () => atualizarStatus(sel.dataset.id, sel.value));
-  });
-
-  grid.querySelectorAll(".select-responsavel, .input-responsavel").forEach(configurarSelectResponsavel);
-
-  grid.querySelectorAll('[data-acao="excluir-tarefa"]').forEach((btn) => {
-    btn.addEventListener("click", () => excluirTarefa(btn.dataset.id));
-  });
-
-  grid.querySelectorAll('[data-acao="parar-recorrencia"]').forEach((btn) => {
-    btn.addEventListener("click", () => pararRecorrencia(btn.dataset.recorrenteId));
   });
 
   // Aprova o conteúdo na hora, mesmo antes da data prevista -- não precisa
   // esperar a validação da semana inteira (toda sexta) pra liberar um post
-  // que já ficou pronto antes.
+  // que já ficou pronto antes. Fica fora do card-modal de propósito: é a
+  // ação mais repetida no dia a dia, não compensa abrir o card só pra isso.
   grid.querySelectorAll('[data-acao="aprovar-tarefa"]').forEach((btn) => {
     btn.addEventListener("click", () => atualizarStatus(btn.dataset.id, "validada"));
   });
-
-  grid.querySelectorAll('[data-acao="duplicar-tarefa"]').forEach((btn) => {
-    btn.addEventListener("click", () => duplicarTarefa(btn.dataset.id));
-  });
 }
 
-function diasEntre(dataA, dataB) {
-  return Math.round((new Date(dataB + "T00:00:00") - new Date(dataA + "T00:00:00")) / 86400000);
-}
-
-// Copia uma tarefa pra próxima semana que existir pra esse cliente, no
-// mesmo dia da semana -- pra quem faz um conteúdo parecido toda semana mas
-// não quer deixá-lo recorrente (cada cópia pode ser editada à parte).
-async function duplicarTarefa(id) {
-  const item = estado.demandas.find((d) => d.id === id);
-  if (!item) return;
-  const semanaAtual = estado.weeks.find((w) => w.id === item.week_id);
-  if (!semanaAtual) {
-    mostrarToast("Não consegui achar a semana dessa tarefa.");
-    return;
-  }
-  const proximaSemana = estado.weeks
-    .filter((w) => w.client_id === estado.clientId && w.semana_inicio > semanaAtual.semana_inicio)
-    .sort((a, b) => (a.semana_inicio < b.semana_inicio ? -1 : 1))[0];
-  if (!proximaSemana) {
-    mostrarToast("Ainda não existe uma próxima semana criada pra duplicar essa tarefa.");
-    return;
-  }
-
-  const payload = {
-    client_id: estado.clientId,
-    week_id: proximaSemana.id,
-    bloco: item.bloco,
-    titulo: item.titulo,
-    descricao: item.descricao || null,
-    tipo_publicacao: item.tipo_publicacao,
-    responsavel_id: item.responsavel_id || null,
-    link: item.link || null,
-    link_referencia: item.link_referencia || null,
-    categoria: categoriaDaTarefa(item),
-    hora_publicacao: item.hora_publicacao || null,
-    status: "pendente",
-    recorrente_id: null,
-  };
-  if (item.data_publicacao) {
-    payload.data_publicacao = addDias(item.data_publicacao, diasEntre(semanaAtual.semana_inicio, proximaSemana.semana_inicio));
-  }
-
-  const { error } = await window.supabaseClient.from("demandas").insert(payload);
-  if (error) {
-    mostrarToast("Erro ao duplicar: " + error.message);
-    return;
-  }
-  mostrarToast(`Tarefa duplicada pra semana de ${formatarDataCurta(proximaSemana.semana_inicio)}.`);
+// Recarrega os dados e redesenha a tela depois de qualquer alteração feita
+// dentro do modal de tarefa (editar, trocar status, duplicar, excluir).
+async function recarregarGrid() {
   await carregarSemanasEDemandas();
   renderWeekTabs();
 }
@@ -1244,45 +1173,6 @@ async function salvarTarefa(bloco, weekId) {
   }
 
   mostrarToast(querRecorrente ? "Tarefa recorrente criada. Ela já entra sozinha nas próximas semanas." : "Tarefa adicionada.");
-  await carregarSemanasEDemandas();
-  renderWeekTabs();
-}
-
-async function salvarEdicaoTarefa(id) {
-  const item = document.querySelector(`.demanda-item[data-id="${id}"]`);
-  const form = item.querySelector(`[data-edit-form="${id}"]`);
-  const titulo = form.querySelector(".input-titulo").value.trim();
-  if (!titulo) {
-    mostrarToast("Dê um nome para a tarefa.");
-    return;
-  }
-
-  const payload = {
-    titulo,
-    descricao: form.querySelector(".input-descricao").value.trim() || null,
-    tipo_publicacao: form.querySelector(".input-tipo").value,
-    responsavel_id: form.querySelector(".input-responsavel").value || null,
-    link: form.querySelector(".input-link").value.trim() || null,
-    link_referencia: form.querySelector(".input-link-referencia").value.trim() || null,
-  };
-
-  const inputCategoria = form.querySelector(".input-categoria");
-  if (inputCategoria) payload.categoria = inputCategoria.value;
-
-  const inputData = form.querySelector(".input-data");
-  const inputHora = form.querySelector(".input-hora");
-  const inputPrazo = form.querySelector(".input-prazo");
-  if (inputData) payload.data_publicacao = inputData.value || null;
-  if (inputHora) payload.hora_publicacao = inputHora.value || null;
-  if (inputPrazo) payload.prazo_pacote = inputPrazo.value || null;
-
-  const { error } = await window.supabaseClient.from("demandas").update(payload).eq("id", id);
-  if (error) {
-    mostrarToast("Erro ao salvar: " + error.message);
-    return;
-  }
-
-  mostrarToast("Tarefa atualizada.");
   await carregarSemanasEDemandas();
   renderWeekTabs();
 }

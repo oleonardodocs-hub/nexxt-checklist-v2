@@ -533,15 +533,32 @@ a { color: inherit; }
   padding: 14px 16px;
   border-radius: 14px;
   border: 1px solid var(--border-hairline);
+  border-top: 3px solid var(--accent);
   background: var(--surface-1);
 }
 .previa-header {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 6px 14px;
   margin-bottom: 12px;
+}
+.previa-header-titulo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.previa-icone-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  flex-shrink: 0;
 }
 .previa-header strong {
   font-size: 14px;
@@ -566,43 +583,66 @@ a { color: inherit; }
   gap: 4px;
   text-align: left;
   padding: 10px 12px;
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border-hairline);
+  border-left: 4px solid var(--border-hairline);
   background: var(--surface-2);
+  box-shadow: 0 1px 2px rgba(11,11,11,0.05);
   cursor: pointer;
-  font-family: inherit;
+  font: inherit;
+  transition: transform .15s ease, box-shadow .15s ease;
+}
+.previa-card:hover,
+.previa-card:focus-visible {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(11,11,11,0.10);
+}
+.previa-card:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 .previa-card-dia {
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: 0.02em;
   text-transform: uppercase;
   color: var(--text-muted);
 }
 .previa-card-titulo {
   font-size: 13px;
+  font-weight: 600;
   color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .previa-card-status {
-  font-size: 12px;
-  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  align-self: flex-start;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 2px 9px;
+  border-radius: 999px;
+  margin-top: 2px;
 }
 .previa-card.previa-ok {
-  border-color: color-mix(in srgb, var(--status-good) 45%, var(--border-hairline));
-  background: color-mix(in srgb, var(--status-good) 10%, var(--surface-1));
+  border-left-color: var(--status-good);
+  background: color-mix(in srgb, var(--status-good) 10%, var(--surface-2));
 }
 .previa-card.previa-ok .previa-card-status {
   color: var(--status-good);
+  background: color-mix(in srgb, var(--status-good) 18%, transparent);
 }
 .previa-card.previa-pendente {
-  border-color: color-mix(in srgb, var(--status-critical) 40%, var(--border-hairline));
-  background: color-mix(in srgb, var(--status-critical) 8%, var(--surface-1));
+  border-left-color: var(--status-critical);
+  background: color-mix(in srgb, var(--status-critical) 8%, var(--surface-2));
 }
 .previa-card.previa-pendente .previa-card-status {
   color: var(--status-critical);
+  background: color-mix(in srgb, var(--status-critical) 16%, transparent);
 }
 
 .week-banner {
@@ -700,10 +740,13 @@ a { color: inherit; }
 }
 
 .demanda-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
   border: 1px solid var(--border-hairline);
   border-left: 3px solid color-mix(in srgb, var(--client-color, var(--accent)) 55%, transparent);
   border-radius: var(--radius-sm);
-  padding: 10px 12px;
+  padding: 9px 10px;
   margin-bottom: 8px;
   background: color-mix(in srgb, var(--client-color, var(--accent)) 5%, var(--surface-2));
   box-shadow: 0 1px 2px rgba(11,11,11,0.05);
@@ -931,6 +974,36 @@ a { color: inherit; }
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+/* Área clicável do card encolhido: tudo que não é o botão "Aprovar" --
+   clicar (ou Enter/Espaço) abre a tarefa inteira no modal. */
+.demanda-abrir {
+  flex: 1 1 auto;
+  min-width: 0;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  margin: -2px -4px;
+  padding: 2px 4px;
+  transition: background .12s ease;
+}
+.demanda-abrir:hover {
+  background: color-mix(in srgb, var(--client-color, var(--accent)) 10%, transparent);
+}
+.demanda-abrir:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.demanda-meta-resumo {
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex-wrap: nowrap;
+}
+.btn-aprovar-encolhido {
+  flex-shrink: 0;
+  margin-top: 1px;
 }
 .demanda-controls {
   display: flex;

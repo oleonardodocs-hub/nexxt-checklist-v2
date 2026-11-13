@@ -36,6 +36,24 @@
     return item && item.categoria === "diaria" ? "diaria" : "social";
   }
 
+  // Pequenas versões próprias (sem depender de cliente.js, já que esse
+  // arquivo também roda sozinho no dashboard) das mesmas contas de data
+  // usadas pra duplicar uma tarefa pra próxima semana.
+  function toISODateModal(date) {
+    const ano = date.getFullYear();
+    const mes = String(date.getMonth() + 1).padStart(2, "0");
+    const dia = String(date.getDate()).padStart(2, "0");
+    return `${ano}-${mes}-${dia}`;
+  }
+  function addDiasModal(isoDate, dias) {
+    const d = new Date(isoDate + "T00:00:00");
+    d.setDate(d.getDate() + dias);
+    return toISODateModal(d);
+  }
+  function diasEntreModal(dataA, dataB) {
+    return Math.round((new Date(dataB + "T00:00:00") - new Date(dataA + "T00:00:00")) / 86400000);
+  }
+
   let aoMudarAtual = null;
 
   function elOverlay() {
@@ -195,6 +213,11 @@
 
         <div class="modal-card-footer">
           <button type="button" class="btn btn-perigo-ghost" id="btn-excluir-modal-tarefa">Excluir tarefa</button>
+          ${
+            !isPacote && tarefa.week_id
+              ? `<button type="button" class="btn btn-ghost" id="btn-duplicar-modal-tarefa" title="Copiar essa tarefa pra próxima semana, no mesmo dia">Duplicar</button>`
+              : ""
+          }
           <button type="button" class="btn btn-primary" id="btn-salvar-modal-tarefa" style="margin-left:auto;">Salvar alterações</button>
         </div>
       </div>
@@ -225,6 +248,52 @@
           return;
         }
         mostrarMsgModal("Essa tarefa não vai mais se repetir.", false);
+        if (aoMudarAtual) aoMudarAtual();
+      });
+    }
+
+    const btnDuplicar = document.getElementById("btn-duplicar-modal-tarefa");
+    if (btnDuplicar) {
+      btnDuplicar.addEventListener("click", async () => {
+        const { data: semanaAtual } = await window.supabaseClient.from("weeks").select("*").eq("id", tarefa.week_id).single();
+        if (!semanaAtual) {
+          mostrarMsgModal("Não consegui achar a semana dessa tarefa.", true);
+          return;
+        }
+        const { data: semanasCliente } = await window.supabaseClient.from("weeks").select("*").eq("client_id", tarefa.client_id).order("semana_inicio");
+        const proximaSemana = (semanasCliente || [])
+          .filter((w) => w.semana_inicio > semanaAtual.semana_inicio)
+          .sort((a, b) => (a.semana_inicio < b.semana_inicio ? -1 : 1))[0];
+        if (!proximaSemana) {
+          mostrarMsgModal("Ainda não existe uma próxima semana criada pra duplicar essa tarefa.", true);
+          return;
+        }
+
+        const payload = {
+          client_id: tarefa.client_id,
+          week_id: proximaSemana.id,
+          bloco: tarefa.bloco,
+          titulo: tarefa.titulo,
+          descricao: tarefa.descricao || null,
+          tipo_publicacao: tarefa.tipo_publicacao,
+          responsavel_id: tarefa.responsavel_id || null,
+          link: tarefa.link || null,
+          link_referencia: tarefa.link_referencia || null,
+          categoria: categoriaDaTarefaModal(tarefa),
+          hora_publicacao: tarefa.hora_publicacao || null,
+          status: "pendente",
+          recorrente_id: null,
+        };
+        if (tarefa.data_publicacao) {
+          payload.data_publicacao = addDiasModal(tarefa.data_publicacao, diasEntreModal(semanaAtual.semana_inicio, proximaSemana.semana_inicio));
+        }
+
+        const { error } = await window.supabaseClient.from("demandas").insert(payload);
+        if (error) {
+          mostrarMsgModal("Erro ao duplicar: " + error.message, true);
+          return;
+        }
+        fecharModalTarefa();
         if (aoMudarAtual) aoMudarAtual();
       });
     }
