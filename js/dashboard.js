@@ -141,6 +141,7 @@ function renderClientes(clients, weeks, demandas, colaboradoresPorId) {
 
   if (clients.length === 0) {
     grid.innerHTML = '<div class="empty-state">Nenhum cliente cadastrado ainda. Use o botão "+ Novo cliente" abaixo.</div>';
+    renderProgressoDiarioGeral(0, 0);
     ultimoChecklist = { lista: [], diaHoje: null, colaboradoresPorId: colaboradoresPorId || {} };
     renderChecklistHoje([], null, colaboradoresPorId || {});
     return;
@@ -153,6 +154,12 @@ function renderClientes(clients, weeks, demandas, colaboradoresPorId) {
 
   const semanaPorId = {};
   weeks.forEach((w) => (semanaPorId[w.id] = w));
+
+  // Tarefas diárias (operacionais) somadas de TODOS os clientes, pra um
+  // único indicador de "hoje" junto do Checklist -- diferente do progresso
+  // de cada cliente, que é só sobre o conteúdo de mídia social da semana.
+  let totalDiarioGeral = 0;
+  let feitasDiarioGeral = 0;
 
   grid.innerHTML = clients
     .map((cliente) => {
@@ -183,8 +190,12 @@ function renderClientes(clients, weeks, demandas, colaboradoresPorId) {
         semanaEhProxima = !!semanaMostrada;
       }
 
+      // Progresso da semana = só o conteúdo de mídia social (a linha
+      // editorial). As tarefas diárias/operacionais têm volume e ritmo
+      // diferentes (podem ser 2, 3, 4 por dia) e entram num indicador à
+      // parte, baseado no dia, não na semana -- ver mais abaixo.
       const demandasSemanaMostrada = semanaMostrada
-        ? demandasCliente.filter((d) => d.week_id === semanaMostrada.id)
+        ? demandasCliente.filter((d) => d.week_id === semanaMostrada.id && categoriaDaTarefa(d) === "social")
         : [];
 
       const total = demandasSemanaMostrada.length;
@@ -192,6 +203,19 @@ function renderClientes(clients, weeks, demandas, colaboradoresPorId) {
       const pct = total > 0 ? Math.round((publicadas / total) * 100) : 0;
 
       const pendentesValidacao = demandasCliente.filter((d) => d.status === "aguardando_validacao").length;
+
+      // Tarefas diárias desse cliente com data efetiva hoje (qualquer
+      // status, pra dar o "X de Y" de hoje) -- some no indicador geral lá
+      // em cima do Checklist também.
+      const demandasDiariasHojeCliente = demandasCliente.filter((d) => {
+        if (categoriaDaTarefa(d) !== "diaria") return false;
+        const semanaDaTarefa = d.week_id ? semanaPorId[d.week_id] : null;
+        return dataEfetivaDaTarefa(d, semanaDaTarefa) === hoje;
+      });
+      const totalDiario = demandasDiariasHojeCliente.length;
+      const feitasDiario = demandasDiariasHojeCliente.filter((d) => d.status === "publicada").length;
+      totalDiarioGeral += totalDiario;
+      feitasDiarioGeral += feitasDiario;
 
       // monta o checklist do dia: qualquer tarefa (de qualquer semana, mesmo
       // ainda não validada) cuja data efetiva seja hoje. A data efetiva vem
@@ -252,6 +276,14 @@ function renderClientes(clients, weeks, demandas, colaboradoresPorId) {
                 <div class="stat-value">${manualHoje}</div>
                 <div class="stat-label">Manual hoje</div>
               </div>
+              ${
+                totalDiario > 0
+                  ? `<div class="stat-tile">
+                      <div class="stat-value">${feitasDiario}/${totalDiario}</div>
+                      <div class="stat-label">Tarefas diárias hoje</div>
+                    </div>`
+                  : ""
+              }
             </div>
           </div>
         </a>
@@ -259,8 +291,29 @@ function renderClientes(clients, weeks, demandas, colaboradoresPorId) {
     })
     .join("");
 
+  renderProgressoDiarioGeral(totalDiarioGeral, feitasDiarioGeral);
+
   ultimoChecklist = { lista: checklistHoje, diaHoje, colaboradoresPorId };
   renderChecklistHoje(checklistHoje, diaHoje, colaboradoresPorId);
+}
+
+// Um único indicador, somando as tarefas diárias de TODOS os clientes de
+// hoje -- diferente da barra de progresso de cada cliente, que é só sobre
+// mídia social. Some da tela quando não existe nenhuma tarefa diária hoje,
+// pra não poluir com um "0/0".
+function renderProgressoDiarioGeral(total, feitas) {
+  const el = document.getElementById("progresso-diario-geral");
+  if (!el) return;
+  if (total === 0) {
+    el.innerHTML = "";
+    return;
+  }
+  const pct = Math.round((feitas / total) * 100);
+  el.innerHTML = `
+    <span>Tarefas diárias de hoje</span>
+    <div class="meter-track"><div class="meter-fill ${pct === 100 ? "is-complete" : ""}" style="width:${pct}%"></div></div>
+    <strong>${feitas}/${total}</strong>
+  `;
 }
 
 function renderChecklistHoje(lista, diaHoje, colaboradoresPorId) {

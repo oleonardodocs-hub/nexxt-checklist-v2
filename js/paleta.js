@@ -72,6 +72,14 @@ function tarefaAtrasada(item, dataEfetiva) {
 const SVG_RELOGIO =
   '<svg class="icone-relogio" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M12 7v5l3.2 2"/></svg>';
 
+// Toda demanda é "social" (conteúdo de mídia social, linha editorial) ou
+// "diaria" (tarefa operacional, pode se repetir várias vezes no mesmo
+// dia). Tarefas antigas sem esse campo contam como "social", que é o uso
+// original do sistema.
+function categoriaDaTarefa(item) {
+  return item.categoria === "diaria" ? "diaria" : "social";
+}
+
 // Quantos minutos faltam até o horário marcado da tarefa -- só faz sentido
 // (e só calculamos) quando a data efetiva dela é hoje; qualquer outro dia
 // devolve null, porque não é uma contagem regressiva, é só um horário.

@@ -185,6 +185,12 @@ a { color: inherit; }
   color: #ffffff;
 }
 .btn-primary:hover { background: var(--accent-dark); }
+.btn-aprovar {
+  background: var(--status-good);
+  border-color: var(--status-good);
+  color: #ffffff;
+}
+.btn-aprovar:hover { background: color-mix(in srgb, var(--status-good) 80%, #000); }
 .btn-ghost {
   background: transparent;
   border-color: transparent;
@@ -282,13 +288,34 @@ a { color: inherit; }
 .agenda-checklist {
   padding: 20px 22px;
 }
+.agenda-checklist-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
 .agenda-checklist-title {
   font-size: 13px;
   font-weight: 700;
-  margin: 0 0 12px;
+  margin: 0;
   text-transform: uppercase;
   letter-spacing: .04em;
   color: var(--text-secondary);
+}
+.progresso-diario-geral {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.progresso-diario-geral .meter-track {
+  width: 70px;
+}
+.progresso-diario-geral strong {
+  color: var(--text-primary);
+  font-size: 13px;
 }
 
 /* ---------- Client card (dashboard) ---------- */
@@ -407,7 +434,7 @@ a { color: inherit; }
 /* Stat tiles */
 .stat-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
   gap: 8px;
 }
 .stat-tile {
@@ -591,6 +618,18 @@ a { color: inherit; }
 .demanda-item.is-atrasada {
   border-left-color: var(--status-critical);
   background: color-mix(in srgb, var(--status-critical) 9%, var(--surface-2));
+}
+.badge-categoria {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-secondary);
+  background: var(--surface-2);
+  border: 1px solid var(--border-hairline);
+  padding: 2px 7px;
+  border-radius: 999px;
+  white-space: nowrap;
 }
 .badge-recorrente {
   font-size: 10px;

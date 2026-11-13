@@ -224,6 +224,7 @@ async function garantirRecorrentesNasSemanas(weekIds) {
         responsavel_id: r.responsavel_id,
         link: r.link,
         hora_publicacao: r.hora_publicacao,
+        categoria: categoriaDaTarefa(r),
         status: "pendente",
         recorrente_id: r.id,
       });
@@ -548,6 +549,7 @@ function camposTarefaHTML(isPacote, item, bloco) {
   const tipo = item.tipo_publicacao || "agendada";
   const horaVal = item.hora_publicacao ? item.hora_publicacao.slice(0, 5) : "";
   const ehTarefaNova = !item.id;
+  const categoria = categoriaDaTarefa(item);
 
   return `
     ${
@@ -566,6 +568,17 @@ function camposTarefaHTML(isPacote, item, bloco) {
       <label>Descrição (o que é e como deve ser feito)</label>
       <textarea class="input-descricao" rows="2" placeholder="Opcional">${escapeHtml(item.descricao || "")}</textarea>
     </div>
+    ${
+      !isPacote
+        ? `<div class="field">
+            <label>Tipo de demanda</label>
+            <select class="input-categoria">
+              <option value="social" ${categoria === "social" ? "selected" : ""}>Mídia social (conteúdo pra postar -- entra no progresso da semana)</option>
+              <option value="diaria" ${categoria === "diaria" ? "selected" : ""}>Tarefa diária (operacional -- entra no progresso do dia, não no da semana)</option>
+            </select>
+          </div>`
+        : ""
+    }
     <div class="grid-2">
       <div class="field">
         <label>Tipo de publicação</label>
@@ -617,12 +630,15 @@ function renderDemandaItem(item, isPacote, semana) {
   const corCliente = corClienteParaCSS(estado.cliente ? estado.cliente.cor : null);
   const dataEfetiva = dataEfetivaDaTarefa(item, semana);
   const atrasada = tarefaAtrasada(item, dataEfetiva);
+  const categoria = categoriaDaTarefa(item);
+  const podeAprovar = categoria === "social" && item.status !== "validada" && item.status !== "publicada";
 
   return `
     <div class="demanda-item ${atrasada ? "is-atrasada" : ""}" data-id="${item.id}" style="--client-color:${corCliente}">
       <div class="demanda-title">
         <span class="pill pill-${item.status}">${NOME_STATUS[item.status]}</span>
         ${escapeHtml(item.titulo)}
+        ${categoria === "diaria" ? '<span class="badge-categoria">Diária</span>' : ""}
         ${item.recorrente_id ? '<span class="badge-recorrente">Recorrente</span>' : ""}
         ${badgeHorarioHTML(item, dataEfetiva, atrasada)}
         ${atrasada ? '<span class="badge-atrasada">Atrasada</span>' : ""}
@@ -642,6 +658,7 @@ function renderDemandaItem(item, isPacote, semana) {
             .join("")}
           <option value="__novo__">+ Novo colaborador...</option>
         </select>
+        ${podeAprovar ? `<button class="btn btn-aprovar" data-acao="aprovar-tarefa" data-id="${item.id}">Aprovar</button>` : ""}
         <button class="btn btn-ghost" data-acao="editar-tarefa" data-id="${item.id}">Editar</button>
         <button class="btn btn-ghost" data-acao="excluir-tarefa" data-id="${item.id}" style="margin-left:auto;">Excluir</button>
       </div>
@@ -706,6 +723,13 @@ function ligarEventosDoGrid() {
 
   grid.querySelectorAll('[data-acao="parar-recorrencia"]').forEach((btn) => {
     btn.addEventListener("click", () => pararRecorrencia(btn.dataset.recorrenteId));
+  });
+
+  // Aprova o conteúdo na hora, mesmo antes da data prevista -- não precisa
+  // esperar a validação da semana inteira (toda sexta) pra liberar um post
+  // que já ficou pronto antes.
+  grid.querySelectorAll('[data-acao="aprovar-tarefa"]').forEach((btn) => {
+    btn.addEventListener("click", () => atualizarStatus(btn.dataset.id, "validada"));
   });
 }
 
@@ -780,6 +804,8 @@ async function salvarTarefa(bloco, weekId) {
   const tipoPublicacao = form.querySelector(".input-tipo").value;
   const responsavelId = form.querySelector(".input-responsavel").value || null;
   const link = form.querySelector(".input-link").value.trim() || null;
+  const inputCategoria = form.querySelector(".input-categoria");
+  const categoria = inputCategoria ? inputCategoria.value : "social";
 
   const inputData = form.querySelector(".input-data");
   const inputHora = form.querySelector(".input-hora");
@@ -800,6 +826,7 @@ async function salvarTarefa(bloco, weekId) {
       responsavel_id: responsavelId,
       link,
       hora_publicacao: horaPublicacao,
+      categoria,
       ativo: true,
     });
     if (recErro) {
@@ -818,6 +845,7 @@ async function salvarTarefa(bloco, weekId) {
     tipo_publicacao: tipoPublicacao,
     responsavel_id: responsavelId,
     link,
+    categoria,
     status: "pendente",
     recorrente_id: recorrenteId,
   };
@@ -852,6 +880,9 @@ async function salvarEdicaoTarefa(id) {
     responsavel_id: form.querySelector(".input-responsavel").value || null,
     link: form.querySelector(".input-link").value.trim() || null,
   };
+
+  const inputCategoria = form.querySelector(".input-categoria");
+  if (inputCategoria) payload.categoria = inputCategoria.value;
 
   const inputData = form.querySelector(".input-data");
   const inputHora = form.querySelector(".input-hora");
