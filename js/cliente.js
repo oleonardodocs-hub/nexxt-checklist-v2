@@ -652,6 +652,16 @@ async function validarSemana(weekId) {
 // Blocos (checklist de cada dia, ou o pacote de datas comemorativas)
 // ------------------------------------------------------------------
 
+// Mantém sempre as demandas de mídia social (a demanda principal, de
+// conteúdo) no topo de cada dia, antes das tarefas diárias -- assim dá
+// pra enxergar de cara qual é o post do dia mesmo quando tem várias
+// tarefas operacionais acumuladas abaixo. Ordenação estável: dentro de
+// cada grupo (social / diária) a ordem original se mantém.
+function ordenarPorCategoria(itens) {
+  const peso = (item) => (categoriaDaTarefa(item) === "social" ? 0 : 1);
+  return [...itens].sort((a, b) => peso(a) - peso(b));
+}
+
 function renderBlocks() {
   const grid = document.getElementById("block-grid");
 
@@ -693,7 +703,7 @@ function renderBlocks() {
       titulo: NOME_DIA[dia],
       weekId: semana.id,
       semana,
-      itens: estado.demandas.filter((d) => d.week_id === semana.id && d.bloco === dia),
+      itens: ordenarPorCategoria(estado.demandas.filter((d) => d.week_id === semana.id && d.bloco === dia)),
     })
   ).join("");
 
@@ -745,6 +755,9 @@ function renderHistorico() {
   const porDia = {};
   itensDoMes.forEach((x) => {
     (porDia[x.dataEf] = porDia[x.dataEf] || []).push(x);
+  });
+  Object.keys(porDia).forEach((dia) => {
+    porDia[dia].sort((a, b) => (categoriaDaTarefa(a.item) === "social" ? 0 : 1) - (categoriaDaTarefa(b.item) === "social" ? 0 : 1));
   });
   const diasOrdenados = Object.keys(porDia).sort();
 
@@ -879,7 +892,7 @@ function renderDemandaItem(item, isPacote, semana) {
   const podeAprovar = categoria === "social" && item.status !== "validada" && item.status !== "publicada";
 
   return `
-    <div class="demanda-item ${atrasada ? "is-atrasada" : ""}" data-id="${item.id}" style="--client-color:${corCliente}">
+    <div class="demanda-item categoria-${categoria} ${atrasada ? "is-atrasada" : ""}" data-id="${item.id}" style="--client-color:${corCliente}">
       <div class="demanda-title">
         <span class="pill pill-${item.status}">${NOME_STATUS[item.status]}</span>
         ${escapeHtml(item.titulo)}
@@ -905,6 +918,7 @@ function renderDemandaItem(item, isPacote, semana) {
         </select>
         ${podeAprovar ? `<button class="btn btn-aprovar" data-acao="aprovar-tarefa" data-id="${item.id}">Aprovar</button>` : ""}
         <button class="btn btn-ghost" data-acao="editar-tarefa" data-id="${item.id}">Editar</button>
+        ${!isPacote ? `<button class="btn btn-ghost" data-acao="duplicar-tarefa" data-id="${item.id}" title="Copiar essa tarefa pra próxima semana, no mesmo dia">Duplicar</button>` : ""}
         <button class="btn btn-ghost" data-acao="excluir-tarefa" data-id="${item.id}" style="margin-left:auto;">Excluir</button>
       </div>
 
@@ -976,6 +990,62 @@ function ligarEventosDoGrid() {
   grid.querySelectorAll('[data-acao="aprovar-tarefa"]').forEach((btn) => {
     btn.addEventListener("click", () => atualizarStatus(btn.dataset.id, "validada"));
   });
+
+  grid.querySelectorAll('[data-acao="duplicar-tarefa"]').forEach((btn) => {
+    btn.addEventListener("click", () => duplicarTarefa(btn.dataset.id));
+  });
+}
+
+function diasEntre(dataA, dataB) {
+  return Math.round((new Date(dataB + "T00:00:00") - new Date(dataA + "T00:00:00")) / 86400000);
+}
+
+// Copia uma tarefa pra próxima semana que existir pra esse cliente, no
+// mesmo dia da semana -- pra quem faz um conteúdo parecido toda semana mas
+// não quer deixá-lo recorrente (cada cópia pode ser editada à parte).
+async function duplicarTarefa(id) {
+  const item = estado.demandas.find((d) => d.id === id);
+  if (!item) return;
+  const semanaAtual = estado.weeks.find((w) => w.id === item.week_id);
+  if (!semanaAtual) {
+    mostrarToast("Não consegui achar a semana dessa tarefa.");
+    return;
+  }
+  const proximaSemana = estado.weeks
+    .filter((w) => w.client_id === estado.clientId && w.semana_inicio > semanaAtual.semana_inicio)
+    .sort((a, b) => (a.semana_inicio < b.semana_inicio ? -1 : 1))[0];
+  if (!proximaSemana) {
+    mostrarToast("Ainda não existe uma próxima semana criada pra duplicar essa tarefa.");
+    return;
+  }
+
+  const payload = {
+    client_id: estado.clientId,
+    week_id: proximaSemana.id,
+    bloco: item.bloco,
+    titulo: item.titulo,
+    descricao: item.descricao || null,
+    tipo_publicacao: item.tipo_publicacao,
+    responsavel_id: item.responsavel_id || null,
+    link: item.link || null,
+    link_referencia: item.link_referencia || null,
+    categoria: categoriaDaTarefa(item),
+    hora_publicacao: item.hora_publicacao || null,
+    status: "pendente",
+    recorrente_id: null,
+  };
+  if (item.data_publicacao) {
+    payload.data_publicacao = addDias(item.data_publicacao, diasEntre(semanaAtual.semana_inicio, proximaSemana.semana_inicio));
+  }
+
+  const { error } = await window.supabaseClient.from("demandas").insert(payload);
+  if (error) {
+    mostrarToast("Erro ao duplicar: " + error.message);
+    return;
+  }
+  mostrarToast(`Tarefa duplicada pra semana de ${formatarDataCurta(proximaSemana.semana_inicio)}.`);
+  await carregarSemanasEDemandas();
+  renderWeekTabs();
 }
 
 // Fica de olho nos seletores de "Responsável" (tanto o rápido, de cada

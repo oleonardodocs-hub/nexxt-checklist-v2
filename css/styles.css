@@ -624,6 +624,23 @@ a { color: inherit; }
 }
 .demanda-item:last-child { margin-bottom: 0; }
 
+/* A demanda de mídia social é a demanda principal (o conteúdo que vai pro
+   ar) -- fica com a cor do cliente mais presente e um pouco mais elevada,
+   pra se destacar das tarefas diárias/operacionais que ficam por baixo
+   dela na mesma coluna (ver ordenarPorCategoria em cliente.js). */
+.demanda-item.categoria-social {
+  border-left-width: 4px;
+  background: color-mix(in srgb, var(--client-color, var(--accent)) 9%, var(--surface-2));
+}
+
+/* Tarefa diária: visual mais neutro/achatado de propósito, pra não competir
+   visualmente com o card de conteúdo (mídia social) ali em cima. */
+.demanda-item.categoria-diaria {
+  border-left-color: var(--border-hairline);
+  background: var(--surface-1);
+  box-shadow: none;
+}
+
 .demanda-item.is-atrasada {
   border-left-color: var(--status-critical);
   background: color-mix(in srgb, var(--status-critical) 9%, var(--surface-2));
