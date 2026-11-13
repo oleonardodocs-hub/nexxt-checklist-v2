@@ -812,6 +812,8 @@ a { color: inherit; }
   font-weight: 600;
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  row-gap: 4px;
   gap: 6px;
 }
 .demanda-meta {
