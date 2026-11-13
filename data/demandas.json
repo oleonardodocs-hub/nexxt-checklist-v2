@@ -15,21 +15,20 @@
     "hora_publicacao": "20:20"
   },
   {
-    "id": "2e4338c6-a4d9-4d28-992d-c30b676e1fa8",
-    "created_at": "2026-11-12T13:08:57.337Z",
+    "id": "178f14d7-8fdb-4650-89b3-9008f48c3003",
+    "created_at": "2026-11-12T13:12:33.323Z",
     "client_id": "335b3cfa-ca27-4417-b962-36a8aebc0a43",
     "week_id": "8e659b65-e1be-4dae-baa5-af89e8faa984",
     "bloco": "quinta",
-    "titulo": "Teste",
-    "descricao": "Teste",
-    "tipo_publicacao": "manual",
-    "responsavel_id": "f6065ba5-958f-4610-b7e1-848147defc5d",
-    "link": "https://www.deezer.com/pt/album/15733014",
-    "status": "publicada",
+    "titulo": "Teste 02",
+    "descricao": "teste",
+    "tipo_publicacao": "agendada",
+    "responsavel_id": null,
+    "link": null,
+    "status": "pendente",
     "recorrente_id": null,
-    "data_publicacao": "2026-11-12",
-    "hora_publicacao": "10:30",
-    "updated_at": "2026-11-12T14:03:24.796Z"
+    "data_publicacao": "2026-11-11",
+    "hora_publicacao": "12:12"
   },
   {
     "id": "40245c29-3235-41a1-b0ad-b77cb72a9eb0",
