@@ -491,9 +491,20 @@ a { color: inherit; }
   display: flex;
   gap: 8px;
   margin: 18px 0;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 4px;
+}
+@media (max-width: 720px) {
+  .week-tabs {
+    flex-wrap: wrap;
+    overflow-x: visible;
+  }
 }
 .week-tab {
+  flex: 0 0 auto;
+  white-space: nowrap;
   font-size: 13px;
   padding: 8px 14px;
   border-radius: 999px;
@@ -512,6 +523,86 @@ a { color: inherit; }
   width: 7px; height: 7px;
   border-radius: 999px;
   margin-right: 6px;
+}
+
+/* Prévia da próxima semana: bloco à parte acima do pipeline, com um
+   cartão por dia (segunda a sexta) colorido de acordo com se a tarefa
+   principal daquele dia já está aprovada ou não. */
+.previa-proxima-semana {
+  margin: 18px 0 4px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid var(--border-hairline);
+  background: var(--surface-1);
+}
+.previa-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin-bottom: 12px;
+}
+.previa-header strong {
+  font-size: 14px;
+}
+.previa-prazo {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.previa-cards {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+}
+@media (max-width: 820px) {
+  .previa-cards {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  }
+}
+.previa-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border-hairline);
+  background: var(--surface-2);
+  cursor: pointer;
+  font-family: inherit;
+}
+.previa-card-dia {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.previa-card-titulo {
+  font-size: 13px;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.previa-card-status {
+  font-size: 12px;
+  font-weight: 600;
+}
+.previa-card.previa-ok {
+  border-color: color-mix(in srgb, var(--status-good) 45%, var(--border-hairline));
+  background: color-mix(in srgb, var(--status-good) 10%, var(--surface-1));
+}
+.previa-card.previa-ok .previa-card-status {
+  color: var(--status-good);
+}
+.previa-card.previa-pendente {
+  border-color: color-mix(in srgb, var(--status-critical) 40%, var(--border-hairline));
+  background: color-mix(in srgb, var(--status-critical) 8%, var(--surface-1));
+}
+.previa-card.previa-pendente .previa-card-status {
+  color: var(--status-critical);
 }
 
 .week-banner {

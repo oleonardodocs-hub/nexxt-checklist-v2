@@ -578,6 +578,72 @@ function renderWeekTabs() {
 
   renderWeekBanner();
   renderBlocks();
+  renderPreviaProximaSemana();
+}
+
+// Prévia da próxima semana: um bloco à parte, acima do pipeline, com um
+// cartãozinho por dia (segunda a sexta) da semana "aguardando_validacao"
+// (a próxima a ser apresentada e validada na sexta-feira). Fica verde
+// quando a tarefa principal de mídia social daquele dia já está aprovada
+// (validada/publicada) e vermelho enquanto não estiver -- inclusive quando
+// ainda nem foi criada --, pra dar uma visão rápida de "a semana que vem
+// já está pronta?". O prazo mostrado é sempre a quinta-feira daquela
+// semana (segunda-feira + 3 dias).
+function renderPreviaProximaSemana() {
+  const el = document.getElementById("previa-proxima-semana");
+  if (!el) return;
+
+  const semana = estado.weeks.find((w) => w.status === "aguardando_validacao" && !semanaPassada(w));
+  if (!semana) {
+    el.style.display = "none";
+    el.innerHTML = "";
+    return;
+  }
+
+  const prazo = addDias(semana.semana_inicio, 3);
+
+  const cards = DIAS_SEMANA.map((dia) => {
+    const itensDoDia = estado.demandas.filter((d) => d.week_id === semana.id && d.bloco === dia);
+    const principal = ordenarPorCategoria(itensDoDia).find((i) => categoriaDaTarefa(i) === "social");
+    const dataDoDia = addDias(semana.semana_inicio, window.OFFSET_DIA_SEMANA[dia]);
+
+    let pronta = false;
+    let textoStatus = "Nenhuma tarefa de mídia social ainda";
+    let tituloTarefa = "";
+    if (principal) {
+      pronta = principal.status === "validada" || principal.status === "publicada";
+      textoStatus = pronta ? "Aprovada" : NOME_STATUS[principal.status] || principal.status;
+      tituloTarefa = principal.titulo;
+    }
+
+    return `
+      <button type="button" class="previa-card ${pronta ? "previa-ok" : "previa-pendente"}" data-previa-week-id="${semana.id}" title="Ver essa semana no pipeline">
+        <span class="previa-card-dia">${NOME_DIA[dia].replace("-feira", "")} · ${formatarDataCurta(dataDoDia)}</span>
+        <span class="previa-card-titulo">${tituloTarefa ? escapeHtml(tituloTarefa) : "Sem tarefa de mídia social"}</span>
+        <span class="previa-card-status">${pronta ? "✓ " : "● "}${escapeHtml(textoStatus)}</span>
+      </button>
+    `;
+  }).join("");
+
+  el.style.display = "block";
+  el.innerHTML = `
+    <div class="previa-proxima-semana">
+      <div class="previa-header">
+        <strong>Prévia da próxima semana</strong>
+        <span class="previa-prazo">Prazo máximo: ${formatarDataLonga(prazo)}</span>
+      </div>
+      <div class="previa-cards">${cards}</div>
+    </div>
+  `;
+
+  el.querySelectorAll("[data-previa-week-id]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      estado.weekTabSelecionada = btn.dataset.previaWeekId;
+      renderWeekTabs();
+      const tabs = document.getElementById("week-tabs");
+      if (tabs) window.scrollTo({ top: tabs.offsetTop - 80, behavior: "smooth" });
+    });
+  });
 }
 
 function renderWeekBanner() {
