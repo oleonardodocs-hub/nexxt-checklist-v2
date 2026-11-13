@@ -13,5 +13,12 @@
     "nome": "Alexandre Vieira",
     "cor": "blue",
     "ativo": true
+  },
+  {
+    "id": "40984d62-4cd2-49ec-9d91-fd42cad69f47",
+    "created_at": "2026-11-13T13:52:56.325Z",
+    "nome": "Doutor Tioki",
+    "cor": "aqua",
+    "ativo": true
   }
 ]
