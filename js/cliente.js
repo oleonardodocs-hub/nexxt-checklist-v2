@@ -596,16 +596,33 @@ function renderPreviaProximaSemana() {
   const prazo = addDias(semana.semana_inicio, 3);
 
   const cards = DIAS_SEMANA.map((dia) => {
-    const itensDoDia = estado.demandas.filter((d) => d.week_id === semana.id && d.bloco === dia);
-    const principal = ordenarPorCategoria(itensDoDia).find((i) => categoriaDaTarefa(i) === "social");
     const dataDoDia = addDias(semana.semana_inicio, window.OFFSET_DIA_SEMANA[dia]);
 
+    // Conta como "do dia" tanto quem está fisicamente naquela coluninha
+    // (semana + bloco) quanto quem foi preenchido com essa data exata no
+    // campo "Data de publicação/entrega" -- mesmo que, por engano, tenha
+    // sido criada em outra semana/coluna do pipeline. Sem esse segundo
+    // critério, uma tarefa cadastrada na coluna errada mas com a data
+    // certa nunca apareceria aqui em cima.
+    const itensDoDia = estado.demandas.filter(
+      (d) => (d.week_id === semana.id && d.bloco === dia) || d.data_publicacao === dataDoDia
+    );
+    const principal = ordenarPorCategoria(itensDoDia).find((i) => categoriaDaTarefa(i) === "social");
+
+    // "pronta" (card verde) = já existe a demanda criada pra esse dia --
+    // mesmo que ainda falte aprovar. Só fica vermelho quando NÃO tem
+    // nenhuma demanda de mídia social criada ainda pra esse dia. Dentro do
+    // verde, "aprovada" (validada/publicada) ganha um ✓, e o resto (pendente,
+    // em produção, aguardando validação...) ganha um ○ e mostra o status
+    // real, pra deixar claro que a aprovação ainda está pendente.
     let pronta = false;
+    let aprovada = false;
     let textoStatus = "Nenhuma tarefa de mídia social ainda";
     let tituloTarefa = "";
     if (principal) {
-      pronta = principal.status === "validada" || principal.status === "publicada";
-      textoStatus = pronta ? "Aprovada" : NOME_STATUS[principal.status] || principal.status;
+      pronta = true;
+      aprovada = principal.status === "validada" || principal.status === "publicada";
+      textoStatus = NOME_STATUS[principal.status] || principal.status;
       tituloTarefa = principal.titulo;
     }
 
@@ -614,12 +631,12 @@ function renderPreviaProximaSemana() {
     // -- cria (e pode já marcar como pronta) sem precisar ir lá embaixo
     // procurar a coluna do dia.
     return `
-      <button type="button" class="previa-card ${pronta ? "previa-ok" : "previa-pendente"}"
+      <button type="button" class="previa-card ${pronta ? "previa-ok" : "previa-pendente"} ${pronta && !aprovada ? "previa-aguardando-aprovacao" : ""}"
         data-previa-dia="${dia}" ${principal ? `data-previa-tarefa-id="${principal.id}"` : ""}
         title="${principal ? "Clique para abrir essa tarefa" : "Clique para criar a tarefa desse dia"}">
         <span class="previa-card-dia">${NOME_DIA[dia].replace("-feira", "")} · ${formatarDataCurta(dataDoDia)}</span>
         <span class="previa-card-titulo">${tituloTarefa ? escapeHtml(tituloTarefa) : "Sem tarefa de mídia social"}</span>
-        <span class="previa-card-status">${pronta ? "✓ " : "● "}${escapeHtml(textoStatus)}</span>
+        <span class="previa-card-status">${aprovada ? "✓ " : pronta ? "○ " : "● "}${escapeHtml(textoStatus)}</span>
       </button>
     `;
   }).join("");

@@ -636,6 +636,13 @@ a { color: inherit; }
   color: var(--status-good);
   background: color-mix(in srgb, var(--status-good) 18%, transparent);
 }
+/* Já existe demanda criada pro dia (fundo/borda ficam verdes, como as já
+   aprovadas), mas ainda falta validar -- o selo de status fica âmbar pra
+   deixar claro que a aprovação está pendente, sem virar vermelho de novo. */
+.previa-card.previa-ok.previa-aguardando-aprovacao .previa-card-status {
+  color: var(--status-warning);
+  background: color-mix(in srgb, var(--status-warning) 22%, transparent);
+}
 .previa-card.previa-pendente {
   border-left-color: var(--status-critical);
   background: color-mix(in srgb, var(--status-critical) 8%, var(--surface-2));
