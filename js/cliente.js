@@ -20,6 +20,14 @@ const NOME_STATUS = {
 };
 const NOME_DIA_LONGO = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
 const NOME_MES = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+// Rede social em que aquela demanda de mídia social vai ser publicada --
+// só informativo (não muda nenhuma regra), aparece como um selo no card.
+const NOME_REDE_SOCIAL = {
+  instagram: "Instagram",
+  facebook: "Facebook",
+  linkedin: "LinkedIn",
+  youtube: "YouTube",
+};
 
 let estado = {
   clientId: null,
@@ -35,6 +43,7 @@ let estado = {
   editandoDrive: false,
   weekTabSelecionada: null, // id da semana, "pacote" ou "historico"
   historicoMes: null, // "AAAA-MM" selecionado dentro do Histórico
+  pacoteCalendarioMes: null, // "AAAA-MM" selecionado no mini-calendário de Datas comemorativas
   mesesDiariosAbertos: {}, // quais grupos de mês da tabela de tarefas diárias estão abertos/fechados
 };
 
@@ -248,6 +257,7 @@ async function garantirRecorrentesNasSemanas(weekIds) {
         link_referencia: r.link_referencia,
         hora_publicacao: r.hora_publicacao,
         categoria: categoriaDaTarefa(r),
+        rede_social: r.rede_social || null,
         status: "pendente",
         recorrente_id: r.id,
       });
@@ -903,13 +913,9 @@ function renderBlocks() {
   }
 
   if (estado.weekTabSelecionada === "pacote") {
-    grid.innerHTML = renderBlockCard({
-      bloco: "datas_comemorativas",
-      titulo: "Datas comemorativas",
-      weekId: null,
-      itens: estado.demandas.filter((d) => d.bloco === "datas_comemorativas"),
-    });
+    grid.innerHTML = renderPacoteCalendarioEAgenda();
     ligarEventosDoGrid();
+    ligarEventosPacoteCalendario();
     return;
   }
 
@@ -1177,6 +1183,91 @@ function renderFormNovaTarefaDiaria() {
   });
 }
 
+// Datas comemorativas: em vez de só a listinha de cards, mostra uma
+// coluna com um mini-calendário (visão geral do mês, com uma bolinha nos
+// dias que já têm alguma data marcada) ao lado da agenda de verdade (a
+// mesma lista/formulário de sempre, reaproveitado de renderBlockCard) --
+// dá pra ver de relance quais dias do mês já estão com data marcada antes
+// de abrir qualquer uma.
+function renderPacoteCalendarioEAgenda() {
+  if (!estado.pacoteCalendarioMes) estado.pacoteCalendarioMes = toISODate(new Date()).slice(0, 7);
+  const itensPacote = estado.demandas.filter((d) => d.bloco === "datas_comemorativas");
+
+  const calendarioHTML = renderMiniCalendarioPacote(estado.pacoteCalendarioMes, itensPacote);
+  const agendaHTML = renderBlockCard({
+    bloco: "datas_comemorativas",
+    titulo: "Datas comemorativas",
+    weekId: null,
+    itens: itensPacote,
+  });
+
+  return `
+    <div class="pacote-calendario-agenda">
+      <div class="pacote-calendario-coluna">${calendarioHTML}</div>
+      <div class="pacote-agenda-coluna">${agendaHTML}</div>
+    </div>
+  `;
+}
+
+function renderMiniCalendarioPacote(mes, itensPacote) {
+  const [ano, mesNum] = mes.split("-").map(Number);
+  const primeiroDiaSemana = new Date(ano, mesNum - 1, 1).getDay(); // 0 = domingo
+  const diasNoMes = new Date(ano, mesNum, 0).getDate();
+  const hojeISO = toISODate(new Date());
+  const nomesDow = ["D", "S", "T", "Q", "Q", "S", "S"];
+
+  const porDia = {};
+  itensPacote.forEach((item) => {
+    const data = item.prazo_pacote || item.data_publicacao;
+    if (!data) return;
+    (porDia[data] = porDia[data] || []).push(item);
+  });
+
+  let celulas = nomesDow.map((d, i) => `<div class="mini-cal-dow" title="${NOME_DIA_LONGO[i]}">${d}</div>`).join("");
+  for (let i = 0; i < primeiroDiaSemana; i++) celulas += `<div class="mini-cal-dia is-vazio"></div>`;
+
+  for (let dia = 1; dia <= diasNoMes; dia++) {
+    const dataISO = `${ano}-${String(mesNum).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
+    const eventosDoDia = porDia[dataISO] || [];
+    const ehHoje = dataISO === hojeISO;
+    celulas += `
+      <div class="mini-cal-dia ${ehHoje ? "is-hoje" : ""} ${eventosDoDia.length ? "tem-evento" : ""}" title="${eventosDoDia.map((e) => escapeHtml(e.titulo)).join(", ")}">
+        <span class="mini-cal-dia-numero">${dia}</span>
+        ${eventosDoDia.length ? '<span class="mini-cal-ponto"></span>' : ""}
+      </div>
+    `;
+  }
+
+  return `
+    <div class="pacote-calendario-card">
+      <div class="pacote-calendario-nav">
+        <button type="button" class="btn btn-ghost" data-acao="pacote-mes-anterior" title="Mês anterior">‹</button>
+        <strong>${formatarMesAno(mes)}</strong>
+        <button type="button" class="btn btn-ghost" data-acao="pacote-mes-proximo" title="Próximo mês">›</button>
+      </div>
+      <div class="mini-calendario-grid">${celulas}</div>
+    </div>
+  `;
+}
+
+function ligarEventosPacoteCalendario() {
+  const grid = document.getElementById("block-grid");
+  const btnAnterior = grid.querySelector('[data-acao="pacote-mes-anterior"]');
+  const btnProximo = grid.querySelector('[data-acao="pacote-mes-proximo"]');
+  if (btnAnterior) {
+    btnAnterior.addEventListener("click", () => {
+      estado.pacoteCalendarioMes = somarMes(estado.pacoteCalendarioMes, -1);
+      renderBlocks();
+    });
+  }
+  if (btnProximo) {
+    btnProximo.addEventListener("click", () => {
+      estado.pacoteCalendarioMes = somarMes(estado.pacoteCalendarioMes, 1);
+      renderBlocks();
+    });
+  }
+}
+
 function renderBlockCard({ bloco, titulo, weekId, semana, itens }) {
   const isPacote = bloco === "datas_comemorativas";
   const feitos = itens.filter((i) => i.status === "publicada").length;
@@ -1294,15 +1385,24 @@ function camposTarefaHTML(isPacote, item, bloco) {
         </select>
       </div>
       <div class="field">
-        <label>Responsável</label>
-        <select class="input-responsavel">
-          <option value="">Sem responsável definido</option>
-          ${estado.colaboradores
-            .map((c) => `<option value="${c.id}" ${c.id === item.responsavel_id ? "selected" : ""}>${escapeHtml(c.nome)}${c.funcao ? ` (${escapeHtml(c.funcao)})` : ""}</option>`)
+        <label>Rede social</label>
+        <select class="input-rede-social">
+          <option value="" ${!item.rede_social ? "selected" : ""}>Não definida</option>
+          ${Object.entries(NOME_REDE_SOCIAL)
+            .map(([valor, nome]) => `<option value="${valor}" ${item.rede_social === valor ? "selected" : ""}>${nome}</option>`)
             .join("")}
-          <option value="__novo__">+ Novo colaborador...</option>
         </select>
       </div>
+    </div>
+    <div class="field">
+      <label>Responsável</label>
+      <select class="input-responsavel">
+        <option value="">Sem responsável definido</option>
+        ${estado.colaboradores
+          .map((c) => `<option value="${c.id}" ${c.id === item.responsavel_id ? "selected" : ""}>${escapeHtml(c.nome)}${c.funcao ? ` (${escapeHtml(c.funcao)})` : ""}</option>`)
+          .join("")}
+        <option value="__novo__">+ Novo colaborador...</option>
+      </select>
     </div>
     <div class="field">
       <label>Link do modelo de referência</label>
@@ -1342,18 +1442,21 @@ function camposTarefaHTML(isPacote, item, bloco) {
 // card-modal que abre ao clicar (ver js/modalTarefa.js), pra não lotar a
 // coluna do dia com formulário aberto em cada tarefa. "Aprovar" continua
 // visível aqui fora porque é a ação mais repetida no dia a dia.
+// Card simples e unificado: título, logo abaixo o status/prazo/horário
+// numa linha só (sem anel de progresso -- esse nível de detalhe já basta
+// pra bater o olho e entender onde a tarefa está) e, por fim, o botão
+// Aprovar embaixo de tudo (não mais flutuando do lado) quando ainda falta
+// aprovar. "Aprovar" segue sendo a ação mais repetida no dia a dia, por
+// isso fica fora do card-modal que abre ao clicar no resto do card.
 function renderDemandaItem(item, isPacote, semana) {
   const corCliente = corClienteParaCSS(estado.cliente ? estado.cliente.cor : null);
   const dataEfetiva = dataEfetivaDaTarefa(item, semana);
   const atrasada = tarefaAtrasada(item, dataEfetiva);
   const categoria = categoriaDaTarefa(item);
   const podeAprovar = categoria === "social" && item.status !== "validada" && item.status !== "publicada";
-  // Anel circular (ver paleta.js) mostrando o quão avançada a tarefa está,
-  // só pelo status -- dá pra bater o olho e saber se é só uma ideia anotada
-  // (0%) ou se já tá quase pronta (perto de 100%), sem abrir o card.
-  const progresso = progressoDaTarefa(item.status);
 
   const colaborador = item.responsavel_id ? estado.colaboradores.find((c) => c.id === item.responsavel_id) : null;
+  const nomeRede = item.rede_social ? NOME_REDE_SOCIAL[item.rede_social] : null;
 
   // Cada informação vira um chip próprio (em vez de tudo numa linha de
   // texto só) -- fica mais fácil de escanear, e o responsável ganha um
@@ -1371,25 +1474,21 @@ function renderDemandaItem(item, isPacote, semana) {
   return `
     <div class="demanda-item categoria-${categoria} ${atrasada ? "is-atrasada" : ""}" data-id="${item.id}" style="--client-color:${corCliente}">
       <div class="demanda-abrir" data-abrir-tarefa="${item.id}" role="button" tabindex="0" title="Clique para abrir e editar essa tarefa">
-        <div class="demanda-card-topo">
-          <span class="demanda-anel" title="Andamento: ${progresso.pct}%">${anelProgressoHTML(progresso.pct, progresso.cor, 38)}</span>
-          <div class="demanda-card-info">
-            <div class="demanda-card-titulo-linha">
-              <span class="demanda-card-titulo">${escapeHtml(item.titulo)}</span>
-              ${atrasada ? '<span class="badge-atrasada">Atrasada</span>' : ""}
-            </div>
-            <div class="demanda-card-badges">
-              <span class="pill pill-${item.status}">${NOME_STATUS[item.status]}</span>
-              ${categoria === "diaria" ? '<span class="badge-categoria">Diária</span>' : ""}
-              ${item.recorrente_id ? '<span class="badge-recorrente">Recorrente</span>' : ""}
-              ${badgeHorarioHTML(item, dataEfetiva, atrasada)}
-            </div>
-          </div>
+        <div class="demanda-card-titulo-linha">
+          <span class="demanda-card-titulo">${escapeHtml(item.titulo)}</span>
+          ${atrasada ? '<span class="badge-atrasada">Atrasada</span>' : ""}
+        </div>
+        <div class="demanda-card-badges">
+          <span class="pill pill-${item.status}">${NOME_STATUS[item.status]}</span>
+          ${nomeRede ? `<span class="demanda-chip demanda-chip-rede demanda-chip-rede-${item.rede_social}">${nomeRede}</span>` : ""}
+          ${categoria === "diaria" ? '<span class="badge-categoria">Diária</span>' : ""}
+          ${item.recorrente_id ? '<span class="badge-recorrente">Recorrente</span>' : ""}
+          ${badgeHorarioHTML(item, dataEfetiva, atrasada)}
         </div>
         ${item.descricao ? `<div class="demanda-meta demanda-meta-resumo">${escapeHtml(item.descricao)}</div>` : ""}
         ${chips.length ? `<div class="demanda-card-chips">${chips.join("")}</div>` : ""}
       </div>
-      ${podeAprovar ? `<button class="btn btn-aprovar btn-aprovar-encolhido" data-acao="aprovar-tarefa" data-id="${item.id}">Aprovar</button>` : ""}
+      ${podeAprovar ? `<button class="btn btn-aprovar btn-aprovar-embaixo" data-acao="aprovar-tarefa" data-id="${item.id}">Aprovar</button>` : ""}
     </div>
   `;
 }
@@ -1527,6 +1626,7 @@ async function salvarTarefa(bloco, weekId) {
 
   const descricao = form.querySelector(".input-descricao").value.trim() || null;
   const tipoPublicacao = form.querySelector(".input-tipo").value;
+  const redeSocial = form.querySelector(".input-rede-social").value || null;
   const responsavelId = form.querySelector(".input-responsavel").value || null;
   const link = form.querySelector(".input-link").value.trim() || null;
   const linkReferencia = form.querySelector(".input-link-referencia").value.trim() || null;
@@ -1555,6 +1655,7 @@ async function salvarTarefa(bloco, weekId) {
       link_referencia: linkReferencia,
       hora_publicacao: horaPublicacao,
       categoria,
+      rede_social: redeSocial,
       ativo: true,
     });
     if (recErro) {
@@ -1575,6 +1676,7 @@ async function salvarTarefa(bloco, weekId) {
     link,
     link_referencia: linkReferencia,
     categoria,
+    rede_social: redeSocial,
     status: "pendente",
     recorrente_id: recorrenteId,
   };

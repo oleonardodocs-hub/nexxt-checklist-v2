@@ -893,6 +893,96 @@ a { color: inherit; }
 .historico-card {
   grid-column: 1 / -1;
 }
+
+/* Datas comemorativas: mini-calendário do mês numa coluna, a agenda de
+   verdade (lista + formulário, reaproveitados de .block-card) na outra --
+   dá a visão geral do mês antes de entrar em cada data. */
+.pacote-calendario-agenda {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+.pacote-calendario-coluna {
+  flex: 1 1 280px;
+  max-width: 320px;
+}
+.pacote-agenda-coluna {
+  flex: 2 1 420px;
+  min-width: 280px;
+}
+.pacote-agenda-coluna .block-card {
+  height: 100%;
+}
+.pacote-calendario-card {
+  background: var(--surface-1);
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-md);
+  padding: 16px;
+}
+.pacote-calendario-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+.pacote-calendario-nav strong {
+  font-size: 13px;
+  min-width: 120px;
+  text-align: center;
+}
+.mini-calendario-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+.mini-cal-dow {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  text-align: center;
+  padding-bottom: 2px;
+}
+.mini-cal-dia {
+  aspect-ratio: 1;
+  min-height: 30px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+.mini-cal-dia.is-vazio {
+  background: transparent;
+}
+.mini-cal-dia.is-hoje {
+  box-shadow: 0 0 0 1.5px var(--accent) inset;
+  color: var(--accent-dark);
+  font-weight: 700;
+}
+.mini-cal-dia.tem-evento {
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface-2));
+  font-weight: 700;
+}
+.mini-cal-ponto {
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--accent);
+}
+@media (max-width: 720px) {
+  .pacote-calendario-coluna {
+    max-width: none;
+    flex-basis: 100%;
+  }
+}
 .historico-nav {
   display: flex;
   align-items: center;
@@ -947,8 +1037,8 @@ a { color: inherit; }
 
 .demanda-item {
   display: flex;
-  align-items: flex-start;
-  gap: 10px;
+  flex-direction: column;
+  gap: 0;
   border: 1px solid var(--border-hairline);
   border-left: 3px solid color-mix(in srgb, var(--client-color, var(--accent)) 55%, transparent);
   border-radius: var(--radius-md);
@@ -964,16 +1054,6 @@ a { color: inherit; }
 }
 .demanda-item:last-child { margin-bottom: 0; }
 
-.demanda-card-topo {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-}
-.demanda-anel { flex-shrink: 0; }
-.demanda-card-info {
-  flex: 1 1 auto;
-  min-width: 0;
-}
 .demanda-card-titulo-linha {
   display: flex;
   align-items: center;
@@ -1026,6 +1106,27 @@ a { color: inherit; }
   font-weight: 700;
   flex-shrink: 0;
 }
+
+/* Selo de rede social (Instagram/Facebook/LinkedIn/YouTube) -- uma cor de
+   fundo sutil por rede, só pra ajudar a escanear de relance pra onde
+   aquele conteúdo vai, sem gritar mais que o status. */
+.demanda-chip-rede {
+  font-weight: 600;
+}
+.demanda-chip-rede-instagram { color: #c0247a; border-color: color-mix(in srgb, #c0247a 35%, transparent); background: color-mix(in srgb, #c0247a 12%, var(--surface-1)); }
+.demanda-chip-rede-facebook { color: #1559c4; border-color: color-mix(in srgb, #1559c4 35%, transparent); background: color-mix(in srgb, #1559c4 12%, var(--surface-1)); }
+.demanda-chip-rede-linkedin { color: #0a66a8; border-color: color-mix(in srgb, #0a66a8 35%, transparent); background: color-mix(in srgb, #0a66a8 12%, var(--surface-1)); }
+.demanda-chip-rede-youtube { color: #b3261e; border-color: color-mix(in srgb, #b3261e 35%, transparent); background: color-mix(in srgb, #b3261e 12%, var(--surface-1)); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .demanda-chip-rede-instagram { color: #f178b6; }
+  :root:not([data-theme="light"]) .demanda-chip-rede-facebook { color: #7aa7f0; }
+  :root:not([data-theme="light"]) .demanda-chip-rede-linkedin { color: #6cbcf0; }
+  :root:not([data-theme="light"]) .demanda-chip-rede-youtube { color: #f08b85; }
+}
+:root[data-theme="dark"] .demanda-chip-rede-instagram { color: #f178b6; }
+:root[data-theme="dark"] .demanda-chip-rede-facebook { color: #7aa7f0; }
+:root[data-theme="dark"] .demanda-chip-rede-linkedin { color: #6cbcf0; }
+:root[data-theme="dark"] .demanda-chip-rede-youtube { color: #f08b85; }
 
 /* A demanda de mídia social é a demanda principal (o conteúdo que vai pro
    ar) -- fica com a cor do cliente mais presente e um pouco mais elevada,
@@ -1290,10 +1391,9 @@ a { color: inherit; }
   flex-wrap: wrap;
 }
 
-/* Área clicável do card encolhido: tudo que não é o botão "Aprovar" --
-   clicar (ou Enter/Espaço) abre a tarefa inteira no modal. */
+/* Área clicável do card: tudo que não é o botão "Aprovar" -- clicar (ou
+   Enter/Espaço) abre a tarefa inteira no modal. */
 .demanda-abrir {
-  flex: 1 1 auto;
   min-width: 0;
   cursor: pointer;
   border-radius: var(--radius-sm);
@@ -1315,9 +1415,11 @@ a { color: inherit; }
   white-space: nowrap;
   flex-wrap: nowrap;
 }
-.btn-aprovar-encolhido {
-  flex-shrink: 0;
-  margin-top: 1px;
+/* Aprovar agora fica embaixo de tudo, não mais flutuando do lado --
+   largura cheia pra ficar óbvio que é a ação principal daquele card. */
+.btn-aprovar-embaixo {
+  width: 100%;
+  margin-top: 10px;
 }
 .demanda-controls {
   display: flex;

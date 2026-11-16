@@ -25,6 +25,12 @@
     manual_pendente: "Publicação manual pendente",
     publicada: "Publicada",
   };
+  const NOME_REDE_SOCIAL_MODAL = {
+    instagram: "Instagram",
+    facebook: "Facebook",
+    linkedin: "LinkedIn",
+    youtube: "YouTube",
+  };
 
   function escaparHtml(str) {
     const div = document.createElement("div");
@@ -215,16 +221,41 @@
                 <option value="manual" ${tipo === "manual" ? "selected" : ""}>Manual (subir na hora)</option>
               </select>
             </div>
-            <div class="field">
-              <label>Responsável</label>
-              <select class="input-responsavel-modal">
-                <option value="">Sem responsável definido</option>
-                ${colaboradores
-                  .map((c) => `<option value="${c.id}" ${c.id === tarefa.responsavel_id ? "selected" : ""}>${escaparHtml(c.nome)}${c.funcao ? ` (${escaparHtml(c.funcao)})` : ""}</option>`)
-                  .join("")}
-              </select>
-            </div>
+            ${
+              categoria === "social"
+                ? `<div class="field">
+                    <label>Rede social</label>
+                    <select class="input-rede-social-modal">
+                      <option value="" ${!tarefa.rede_social ? "selected" : ""}>Não definida</option>
+                      ${Object.entries(NOME_REDE_SOCIAL_MODAL)
+                        .map(([valor, nome]) => `<option value="${valor}" ${tarefa.rede_social === valor ? "selected" : ""}>${nome}</option>`)
+                        .join("")}
+                    </select>
+                  </div>`
+                : `<div class="field">
+                    <label>Responsável</label>
+                    <select class="input-responsavel-modal">
+                      <option value="">Sem responsável definido</option>
+                      ${colaboradores
+                        .map((c) => `<option value="${c.id}" ${c.id === tarefa.responsavel_id ? "selected" : ""}>${escaparHtml(c.nome)}${c.funcao ? ` (${escaparHtml(c.funcao)})` : ""}</option>`)
+                        .join("")}
+                    </select>
+                  </div>`
+            }
           </div>
+          ${
+            categoria === "social"
+              ? `<div class="field">
+                  <label>Responsável</label>
+                  <select class="input-responsavel-modal">
+                    <option value="">Sem responsável definido</option>
+                    ${colaboradores
+                      .map((c) => `<option value="${c.id}" ${c.id === tarefa.responsavel_id ? "selected" : ""}>${escaparHtml(c.nome)}${c.funcao ? ` (${escaparHtml(c.funcao)})` : ""}</option>`)
+                      .join("")}
+                  </select>
+                </div>`
+              : ""
+          }
           <div class="field">
             <label>Link do modelo de referência</label>
             <input type="url" class="input-link-referencia-modal" placeholder="https://..." value="${escaparHtml(tarefa.link_referencia || "")}" />
@@ -329,6 +360,7 @@
           link: tarefa.link || null,
           link_referencia: tarefa.link_referencia || null,
           categoria: categoriaDaTarefaModal(tarefa),
+          rede_social: tarefa.rede_social || null,
           hora_publicacao: tarefa.hora_publicacao || null,
           status: "pendente",
           recorrente_id: null,
@@ -390,6 +422,8 @@
       };
       const inputCategoria = overlay.querySelector(".input-categoria-modal");
       if (inputCategoria) payload.categoria = inputCategoria.value;
+      const inputRedeSocial = overlay.querySelector(".input-rede-social-modal");
+      if (inputRedeSocial) payload.rede_social = inputRedeSocial.value || null;
       const inputData = overlay.querySelector(".input-data-modal");
       const inputHora = overlay.querySelector(".input-hora-modal");
       const inputPrazo = overlay.querySelector(".input-prazo-modal");
