@@ -127,6 +127,35 @@ a { color: inherit; }
   padding: 24px 20px 64px;
 }
 
+/* Página do cliente: conteúdo principal + coluna lateral fixa de Datas
+   comemorativas (sempre visível, não importa qual aba/semana esteja
+   selecionada no conteúdo principal). */
+.cliente-layout {
+  display: flex;
+  align-items: flex-start;
+  gap: 22px;
+}
+.cliente-coluna-principal {
+  flex: 1;
+  min-width: 0;
+}
+.cliente-sidebar {
+  flex: 0 0 300px;
+  width: 300px;
+  position: sticky;
+  top: 20px;
+}
+@media (max-width: 960px) {
+  .cliente-layout {
+    flex-direction: column;
+  }
+  .cliente-sidebar {
+    width: 100%;
+    flex: 1 1 auto;
+    position: static;
+  }
+}
+
 .topbar {
   display: flex;
   align-items: center;
@@ -640,28 +669,47 @@ a { color: inherit; }
   flex-direction: column;
   gap: 6px;
 }
+/* Cada linha da prévia virou um mini-card: a parte de cima (dia/ícone +
+   título + selos de status/rede social) abre a tarefa no modal; o botão
+   Aprovar fica embaixo, fora da área clicável -- essas duas linhas (prévia
+   desta semana / próxima semana) são hoje o único lugar pra ver e aprovar
+   as tarefas de mídia social da semana atual e da seguinte. */
 .previa-linha {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.14);
+  transition: background .15s ease;
+}
+.previa-linha-abrir {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
   width: 100%;
   text-align: left;
-  padding: 9px 12px;
-  border-radius: var(--radius-sm);
+  padding: 0;
   border: none;
-  background: rgba(255, 255, 255, 0.14);
+  background: none;
   color: #ffffff;
   font: inherit;
   cursor: pointer;
-  transition: background .15s ease;
 }
 .previa-linha:hover,
-.previa-linha:focus-visible {
+.previa-linha-abrir:focus-visible {
   background: rgba(255, 255, 255, 0.24);
 }
-.previa-linha:focus-visible {
+.previa-linha-abrir:focus-visible {
   outline: 2px solid #ffffff;
   outline-offset: 1px;
+}
+.previa-linha-topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
 }
 .previa-linha-dia {
   font-size: 10.5px;
@@ -679,6 +727,16 @@ a { color: inherit; }
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.previa-linha-badges {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+}
+.previa-linha-badges .demanda-chip {
+  background: rgba(255, 255, 255, 0.92);
 }
 .previa-linha-icone {
   display: inline-flex;
@@ -707,11 +765,16 @@ a { color: inherit; }
   background: #ffffff;
   color: var(--status-warning);
 }
+.btn-aprovar-previa {
+  width: 100%;
+}
 
 /* Tarefas diárias: seção à parte, abaixo do pipeline de mídia social --
-   UMA tabela só, estilo Monday, agrupada por mês do calendário (cada
-   grupo pode ser aberto/fechado), e UMA única forma de criar (botão +
-   formulário com título, responsável, data e observação). */
+   UMA tabela só, estilo ticket/Monday, agrupada por DIA DA SEMANA (cada dia
+   vem como cabeçalho fixo, sempre visível), e UMA única forma de criar
+   (botão + formulário com título, responsável, data, observação e repetir
+   semanalmente). Tarefa concluída some sozinha dessa lista (vai pro
+   Histórico), então não precisa de nenhum estado de "aberto/fechado". */
 .tarefas-diarias-section {
   margin-top: 28px;
 }
@@ -728,52 +791,45 @@ a { color: inherit; }
   color: var(--text-primary);
   margin: 0;
 }
-.tarefas-diarias-meses {
+.tarefas-diarias-dias {
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
-.mes-diario-grupo {
+.dia-diario-grupo {
   background: var(--surface-1);
   border: 1px solid var(--border-hairline);
   border-radius: var(--radius-md);
   overflow: hidden;
 }
-.mes-diario-cabecalho {
+.dia-diario-cabecalho {
   display: flex;
   align-items: center;
   gap: 10px;
   width: 100%;
   padding: 11px 14px;
-  background: none;
-  border: none;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
   color: var(--text-primary);
 }
-.mes-diario-seta {
-  color: var(--text-muted);
-  font-size: 11px;
-  width: 12px;
-  flex-shrink: 0;
-}
-.mes-diario-nome {
+.dia-diario-nome {
   font-weight: 700;
   font-size: 12.5px;
   letter-spacing: 0.03em;
+  text-transform: uppercase;
 }
-.mes-diario-contagem {
+.dia-diario-contagem {
   margin-left: auto;
   font-size: 12px;
   color: var(--text-muted);
   flex-shrink: 0;
+  background: var(--surface-2);
+  padding: 2px 9px;
+  border-radius: 999px;
 }
-.mes-diario-corpo {
+.dia-diario-corpo {
   border-top: 1px solid var(--border-hairline);
   overflow-x: auto;
 }
-.mes-diario-corpo .checklist-vazio {
+.dia-diario-corpo .checklist-vazio {
   padding: 12px 14px;
 }
 .tabela-diaria {
@@ -783,7 +839,7 @@ a { color: inherit; }
 }
 .tabela-diaria-linha {
   display: grid;
-  grid-template-columns: 26px 1.6fr 1.3fr 1fr 86px 1.4fr;
+  grid-template-columns: 26px 1.6fr 1.3fr 1fr 110px 1.4fr;
   align-items: center;
   gap: 10px;
   padding: 9px 14px;
@@ -813,19 +869,44 @@ a { color: inherit; }
   font-size: 13.5px;
   cursor: pointer;
 }
-.tabela-diaria-linha.is-concluida .tabela-diaria-titulo {
-  text-decoration: line-through;
-  color: var(--text-muted);
-}
 .tabela-diaria-data,
 .tabela-diaria-obs {
   font-size: 12.5px;
   color: var(--text-secondary);
 }
+.tabela-diaria-data {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+.tabela-diaria-data .icone-relogio {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.badge-recorrente-mini {
+  display: inline-flex;
+  color: var(--accent);
+  font-weight: 700;
+  flex-shrink: 0;
+}
 .tabela-diaria-obs {
+  display: block;
+  width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  text-align: left;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+.tabela-diaria-obs:hover {
+  color: var(--text-primary);
+  text-decoration: underline;
 }
 .tabela-diaria-vazio {
   color: var(--text-muted);

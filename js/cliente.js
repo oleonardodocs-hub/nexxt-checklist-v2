@@ -41,10 +41,9 @@ let estado = {
   acessosAbertos: false,
   erroAcessos: null,
   editandoDrive: false,
-  weekTabSelecionada: null, // id da semana, "pacote" ou "historico"
+  weekTabSelecionada: null, // id da semana ou "historico"
   historicoMes: null, // "AAAA-MM" selecionado dentro do Histórico
-  pacoteCalendarioMes: null, // "AAAA-MM" selecionado no mini-calendário de Datas comemorativas
-  mesesDiariosAbertos: {}, // quais grupos de mês da tabela de tarefas diárias estão abertos/fechados
+  pacoteCalendarioMes: null, // "AAAA-MM" selecionado no mini-calendário de Datas comemorativas (lateral)
 };
 
 function segundaFeiraDe(date) {
@@ -195,7 +194,7 @@ async function carregarSemanasEDemandas() {
       estado.weeks.filter((w) => w.status === "validada" && w.semana_inicio <= inicioAtual).sort((a, b) => (a.semana_inicio < b.semana_inicio ? 1 : -1))[0] ||
       estado.weeks.filter((w) => w.status === "aguardando_validacao")[0] ||
       estado.weeks[0];
-    estado.weekTabSelecionada = ativa ? ativa.id : "pacote";
+    estado.weekTabSelecionada = ativa ? ativa.id : "historico";
   }
 }
 
@@ -664,19 +663,13 @@ function renderWeekTabs() {
     })
     .join("");
 
-  const tabPacote = `
-    <button class="week-tab ${estado.weekTabSelecionada === "pacote" ? "active" : ""}" data-week-id="pacote">
-      Datas comemorativas
-    </button>
-  `;
-
   const tabHistorico = `
     <button class="week-tab ${estado.weekTabSelecionada === "historico" ? "active" : ""}" data-week-id="historico">
       Histórico
     </button>
   `;
 
-  el.innerHTML = tabsSemana + tabPacote + tabHistorico;
+  el.innerHTML = tabsSemana + tabHistorico;
 
   el.querySelectorAll("[data-week-id]").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -693,6 +686,9 @@ function renderWeekTabs() {
   renderPreviaSemana("previa-proxima-semana", 7, "Prévia da próxima semana", "azul", "Próxima semana");
   renderFormNovaTarefaDiaria();
   renderTarefasDiariasSecao();
+  // Datas comemorativas: coluna lateral fixa, visível em qualquer aba/semana
+  // selecionada aqui em cima -- por isso fica fora do if/else de renderBlocks.
+  renderSidebarDatasComemorativas();
 }
 
 // Prévia de uma semana (essa ou a seguinte): um bloco à parte, acima do
@@ -747,26 +743,45 @@ function renderPreviaSemana(elId, offsetDias, titulo, tema, tagTexto) {
     let aprovada = false;
     let textoStatus = "Nenhuma tarefa de mídia social ainda";
     let tituloTarefa = "";
+    let nomeRede = null;
+    let podeAprovar = false;
     if (principal) {
       pronta = true;
       aprovada = principal.status === "validada" || principal.status === "publicada";
       textoStatus = NOME_STATUS[principal.status] || principal.status;
       tituloTarefa = principal.titulo;
+      nomeRede = principal.rede_social ? NOME_REDE_SOCIAL[principal.rede_social] : null;
+      podeAprovar = !aprovada;
     }
     if (aprovada) totalAprovadas++;
 
-    // Linha com tarefa: clicar abre ela no modal. Linha vazia: clicar já
-    // abre o modal em modo de criação, com o dia/semana certos
-    // pré-preenchidos -- cria (e pode já marcar como pronta) sem precisar
-    // ir lá embaixo procurar a coluna do dia.
+    // Cada linha virou um mini-card: a área clicável (abre a tarefa no
+    // modal, ou já cria uma nova com o dia/semana certos pré-preenchidos
+    // quando ainda não existe nenhuma) traz status + rede social, e o
+    // botão Aprovar fica embaixo, de fora da área clicável -- essas duas
+    // linhas (prévia desta semana / próxima semana) substituem por completo
+    // o antigo grid de colunas por dia: agora são o único lugar pra ver e
+    // aprovar as tarefas de mídia social da semana atual e da seguinte.
     return `
-      <button type="button" class="previa-linha ${pronta ? "previa-ok" : "previa-pendente"} ${pronta && !aprovada ? "previa-aguardando-aprovacao" : ""}"
-        data-previa-dia="${dia}" ${principal ? `data-previa-tarefa-id="${principal.id}"` : ""}
-        title="${escapeHtml(textoStatus)}${principal ? "" : " — clique para criar a tarefa desse dia"}">
-        <span class="previa-linha-dia">${NOME_DIA[dia].replace("-feira", "").slice(0, 3).toUpperCase()} ${formatarDataCurta(dataDoDia)}</span>
-        <span class="previa-linha-titulo">${tituloTarefa ? escapeHtml(tituloTarefa) : "Sem tarefa ainda"}</span>
-        <span class="previa-linha-icone">${aprovada ? "✓" : pronta ? "○" : "●"}</span>
-      </button>
+      <div class="previa-linha ${pronta ? "previa-ok" : "previa-pendente"} ${pronta && !aprovada ? "previa-aguardando-aprovacao" : ""}">
+        <button type="button" class="previa-linha-abrir" data-previa-dia="${dia}" ${principal ? `data-previa-tarefa-id="${principal.id}"` : ""}
+          title="${escapeHtml(textoStatus)}${principal ? "" : " — clique para criar a tarefa desse dia"}">
+          <span class="previa-linha-topo">
+            <span class="previa-linha-dia">${NOME_DIA[dia].replace("-feira", "").slice(0, 3).toUpperCase()} ${formatarDataCurta(dataDoDia)}</span>
+            <span class="previa-linha-icone">${aprovada ? "✓" : pronta ? "○" : "●"}</span>
+          </span>
+          <span class="previa-linha-titulo">${tituloTarefa ? escapeHtml(tituloTarefa) : "Sem tarefa ainda — clique para criar"}</span>
+          ${
+            principal
+              ? `<span class="previa-linha-badges">
+                  <span class="pill pill-${principal.status}">${escapeHtml(textoStatus)}</span>
+                  ${nomeRede ? `<span class="demanda-chip demanda-chip-rede demanda-chip-rede-${principal.rede_social}">${nomeRede}</span>` : ""}
+                </span>`
+              : ""
+          }
+        </button>
+        ${podeAprovar ? `<button type="button" class="btn btn-aprovar btn-aprovar-previa" data-acao="aprovar-tarefa-previa" data-id="${principal.id}">Aprovar</button>` : ""}
+      </div>
     `;
   }).join("");
 
@@ -810,6 +825,13 @@ function renderPreviaSemana(elId, offsetDias, titulo, tema, tagTexto) {
       });
     });
   });
+
+  // Aprovar direto da prévia, sem abrir a tarefa inteira -- é a ação mais
+  // repetida no dia a dia (mesmo botão/comportamento que o grid de colunas
+  // por dia tinha antes de ser removido).
+  el.querySelectorAll('[data-acao="aprovar-tarefa-previa"]').forEach((btn) => {
+    btn.addEventListener("click", () => atualizarStatus(btn.dataset.id, "validada"));
+  });
 }
 
 function renderWeekBanner() {
@@ -817,12 +839,6 @@ function renderWeekBanner() {
 
   if (estado.weekTabSelecionada === "historico") {
     banner.style.display = "none";
-    return;
-  }
-
-  if (estado.weekTabSelecionada === "pacote") {
-    banner.style.display = "flex";
-    banner.innerHTML = `<span>Pacote de datas comemorativas: entregue de uma vez, sem ciclo semanal.</span>`;
     return;
   }
 
@@ -912,54 +928,49 @@ function renderBlocks() {
     return;
   }
 
-  if (estado.weekTabSelecionada === "pacote") {
-    grid.innerHTML = renderPacoteCalendarioEAgenda();
-    ligarEventosDoGrid();
-    ligarEventosPacoteCalendario();
-    return;
-  }
-
   const semana = estado.weeks.find((w) => w.id === estado.weekTabSelecionada);
   if (!semana) {
     grid.innerHTML = '<div class="empty-state">Selecione uma semana.</div>';
     return;
   }
 
-  // A grade de cima fica só com a demanda de mídia social de cada dia
-  // (o post em si); as tarefas diárias têm a tabela própria abaixo,
-  // agrupada por mês (ver renderTarefasDiariasSecao), independente de
-  // qual semana está selecionada aqui em cima.
-  grid.innerHTML = DIAS_SEMANA.map((dia) =>
-    renderBlockCard({
-      bloco: dia,
-      titulo: NOME_DIA[dia],
-      weekId: semana.id,
-      semana,
-      itens: estado.demandas.filter((d) => d.week_id === semana.id && d.bloco === dia && categoriaDaTarefa(d) === "social"),
-    })
-  ).join("");
+  // O grid de colunas por dia (segunda a sexta) saiu de vez daqui -- as
+  // tarefas de mídia social da semana atual e da próxima agora vivem só
+  // nos cards de Prévia, lá em cima (ver renderPreviaSemana). As abas de
+  // semana continuam existindo só pra controlar o fluxo de validação
+  // (ver renderWeekBanner/validarSemana); por isso essa área, pra
+  // qualquer semana selecionada, mostra só um resumo informativo.
+  const itensDaSemana = estado.demandas.filter((d) => d.week_id === semana.id && categoriaDaTarefa(d) === "social");
+  const aprovadas = itensDaSemana.filter((d) => d.status === "validada" || d.status === "publicada").length;
+  const fimSemana = addDias(semana.semana_inicio, 4);
 
-  ligarEventosDoGrid();
+  grid.innerHTML = `
+    <div class="block-card semana-resumo-card">
+      <h3>${formatarDataCurta(semana.semana_inicio)} a ${formatarDataCurta(fimSemana)} <span class="block-count">${aprovadas}/${itensDaSemana.length} aprovadas</span></h3>
+      <p class="field-hint">As tarefas de mídia social desta e da próxima semana aparecem e são aprovadas direto nos cards de Prévia, no topo da página.</p>
+    </div>
+  `;
 }
 
-// Tarefas diárias: UMA tabela só (estilo Monday), agrupada por mês do
-// calendário (não mais por dia da semana) -- cada linha guarda o
-// responsável, a data exata e uma observação opcional, além do status.
-// Continuam sendo demandas normais (categoria "diaria"), só que soltas
-// da semana/bloco: usam a "Data" (data_publicacao) como referência de
-// quando a tarefa cai, que é o mesmo campo que o Checklist de hoje do
-// painel (dashboard.js) já lê via dataEfetivaDaTarefa -- então a tarefa
-// aparece sozinha lá assim que a data chegar, sem nada extra pra fazer
-// aqui.
+// Tarefas diárias: UMA tabela só (estilo ticket/Monday), agrupada por DIA
+// DA SEMANA (segunda a sexta) que a tarefa precisa ser executada -- cada
+// dia vem como cabeçalho fixo, igual à referência que o Léo mandou, com as
+// tarefas daquele dia (de qualquer semana) listadas em baixo, cada uma numa
+// linha só. Continuam sendo demandas normais (categoria "diaria"); o dia da
+// semana do cabeçalho é calculado na hora, a partir da data efetiva de cada
+// uma (dataEfetivaDaTarefa -- o mesmo campo que o Checklist de hoje do
+// painel já lê), não é um campo novo no banco. Assim que a tarefa é marcada
+// como feita (publicada), ela some sozinha de qui e passa a aparecer só no
+// Histórico, agrupada por mês junto com o resto.
 function renderTarefasDiariasSecao() {
-  const el = document.getElementById("tarefas-diarias-meses");
+  const el = document.getElementById("tarefas-diarias-dias");
   if (!el) return;
 
   const semanaPorId = {};
   estado.weeks.forEach((w) => (semanaPorId[w.id] = w));
 
   const itens = estado.demandas
-    .filter((d) => categoriaDaTarefa(d) === "diaria")
+    .filter((d) => categoriaDaTarefa(d) === "diaria" && d.status !== "publicada")
     .map((item) => {
       const semana = item.week_id ? semanaPorId[item.week_id] : null;
       return { item, dataEf: dataEfetivaDaTarefa(item, semana) };
@@ -968,77 +979,80 @@ function renderTarefasDiariasSecao() {
   const semData = itens.filter((x) => !x.dataEf);
   const comData = itens.filter((x) => x.dataEf);
 
-  const porMes = {};
+  const porDia = {};
+  DIAS_SEMANA.forEach((dia) => (porDia[dia] = []));
+  const foraDaSemana = []; // sábado/domingo, raro, mas não pode desaparecer
+
   comData.forEach((x) => {
-    const mes = x.dataEf.slice(0, 7);
-    (porMes[mes] = porMes[mes] || []).push(x);
-  });
-  Object.keys(porMes).forEach((mes) => {
-    porMes[mes].sort((a, b) => (a.dataEf < b.dataEf ? -1 : a.dataEf > b.dataEf ? 1 : 0));
+    const diaSemanaJS = new Date(x.dataEf + "T00:00:00").getDay(); // 0=dom ... 6=sáb
+    const dia = Object.keys(window.OFFSET_DIA_SEMANA).find((k) => window.OFFSET_DIA_SEMANA[k] === diaSemanaJS - 1);
+    if (dia) porDia[dia].push(x);
+    else foraDaSemana.push(x);
   });
 
-  const mesAtual = toISODate(new Date()).slice(0, 7);
-  const mesesOrdenados = Object.keys(porMes);
-  if (!mesesOrdenados.includes(mesAtual)) mesesOrdenados.push(mesAtual);
-  mesesOrdenados.sort();
+  Object.keys(porDia).forEach((dia) => {
+    porDia[dia].sort((a, b) => (a.dataEf < b.dataEf ? -1 : a.dataEf > b.dataEf ? 1 : 0));
+  });
+  foraDaSemana.sort((a, b) => (a.dataEf < b.dataEf ? -1 : a.dataEf > b.dataEf ? 1 : 0));
 
-  const gruposHTML = mesesOrdenados
-    .map((mes) => {
-      const linhasDoMes = porMes[mes] || [];
-      const aberto = estado.mesesDiariosAbertos[mes] !== undefined ? estado.mesesDiariosAbertos[mes] : mes === mesAtual;
-      const feitas = linhasDoMes.filter((x) => x.item.status === "publicada").length;
-      return `
-        <div class="mes-diario-grupo" data-mes="${mes}">
-          <button type="button" class="mes-diario-cabecalho" data-acao="toggle-mes-diario" data-mes="${mes}">
-            <span class="mes-diario-seta">${aberto ? "▾" : "▸"}</span>
-            <span class="mes-diario-nome">${formatarMesAno(mes).toUpperCase()}</span>
-            <span class="mes-diario-contagem">${feitas}/${linhasDoMes.length}</span>
-          </button>
-          <div class="mes-diario-corpo" ${aberto ? "" : 'style="display:none;"'}>
-            ${linhasDoMes.length ? renderTabelaTarefasDiarias(linhasDoMes) : '<p class="checklist-vazio">Nenhuma tarefa nesse mês ainda.</p>'}
-          </div>
+  const gruposHTML = DIAS_SEMANA.map((dia) => {
+    const linhasDoDia = porDia[dia];
+    return `
+      <div class="dia-diario-grupo" data-dia="${dia}">
+        <div class="dia-diario-cabecalho">
+          <span class="dia-diario-nome">${NOME_DIA[dia]}</span>
+          <span class="dia-diario-contagem">${linhasDoDia.length}</span>
         </div>
-      `;
-    })
-    .join("");
+        <div class="dia-diario-corpo">
+          ${linhasDoDia.length ? renderTabelaTarefasDiarias(linhasDoDia) : '<p class="checklist-vazio">Nenhuma tarefa pendente para esse dia.</p>'}
+        </div>
+      </div>
+    `;
+  }).join("");
 
-  const semDataHTML = semData.length
+  const foraHTML = foraDaSemana.length
     ? `
-      <div class="mes-diario-grupo" data-mes="sem-data">
-        <div class="mes-diario-cabecalho" style="cursor:default;">
-          <span class="mes-diario-nome">SEM DATA DEFINIDA</span>
-          <span class="mes-diario-contagem">${semData.filter((x) => x.item.status === "publicada").length}/${semData.length}</span>
+      <div class="dia-diario-grupo" data-dia="fim-de-semana">
+        <div class="dia-diario-cabecalho">
+          <span class="dia-diario-nome">FIM DE SEMANA</span>
+          <span class="dia-diario-contagem">${foraDaSemana.length}</span>
         </div>
-        <div class="mes-diario-corpo">${renderTabelaTarefasDiarias(semData)}</div>
+        <div class="dia-diario-corpo">${renderTabelaTarefasDiarias(foraDaSemana)}</div>
       </div>
     `
     : "";
 
-  el.innerHTML = semDataHTML + gruposHTML;
+  const semDataHTML = semData.length
+    ? `
+      <div class="dia-diario-grupo" data-dia="sem-data">
+        <div class="dia-diario-cabecalho">
+          <span class="dia-diario-nome">SEM DATA DEFINIDA</span>
+          <span class="dia-diario-contagem">${semData.length}</span>
+        </div>
+        <div class="dia-diario-corpo">${renderTabelaTarefasDiarias(semData)}</div>
+      </div>
+    `
+    : "";
 
-  el.querySelectorAll('[data-acao="toggle-mes-diario"]').forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const mes = btn.dataset.mes;
-      const estavaAberto = estado.mesesDiariosAbertos[mes] !== undefined ? estado.mesesDiariosAbertos[mes] : mes === mesAtual;
-      estado.mesesDiariosAbertos[mes] = !estavaAberto;
-      renderTarefasDiariasSecao();
-    });
-  });
+  el.innerHTML = gruposHTML + foraHTML + semDataHTML;
 
   ligarEventosTabelaTarefasDiarias();
 }
 
-// Tabela de uma lista de linhas (de um mês, ou do grupo "sem data"):
-// checkbox, tarefa, responsável, status (reaproveita os mesmos 7 status e
-// cores de pill do pipeline principal), data e observação.
+// Tabela de uma lista de linhas (de um dia da semana, do grupo "fim de
+// semana" ou do grupo "sem data"): checkbox, tarefa, responsável, status
+// (reaproveita os mesmos 7 status e cores de pill do pipeline principal),
+// um selo de data/horário (com reloginho, igual ao resto do app -- e uma
+// marquinha extra quando a tarefa é recorrente) e uma observação que pode
+// ser clicada pra adicionar/editar um texto complementar, sem precisar
+// abrir a tarefa inteira pra isso.
 function renderTabelaTarefasDiarias(linhas) {
   const corpo = linhas
     .map(({ item, dataEf }) => {
-      const concluida = item.status === "publicada";
       const colaborador = item.responsavel_id ? estado.colaboradores.find((c) => c.id === item.responsavel_id) : null;
       return `
-        <div class="tabela-diaria-linha ${concluida ? "is-concluida" : ""}" data-id="${item.id}">
-          <input type="checkbox" class="checklist-check" data-id="${item.id}" ${concluida ? "checked" : ""} />
+        <div class="tabela-diaria-linha" data-id="${item.id}">
+          <input type="checkbox" class="checklist-check" data-id="${item.id}" title="Marcar como feita" />
           <span class="tabela-diaria-titulo" data-abrir-tarefa-diaria="${item.id}" title="Clique para abrir e editar essa tarefa">${escapeHtml(item.titulo)}</span>
           <span class="tabela-diaria-responsavel">${
             colaborador
@@ -1046,8 +1060,8 @@ function renderTabelaTarefasDiarias(linhas) {
               : '<span class="tabela-diaria-vazio">—</span>'
           }</span>
           <span class="pill pill-${item.status}">${NOME_STATUS[item.status]}</span>
-          <span class="tabela-diaria-data">${dataEf ? formatarDataCurta(dataEf) : "—"}</span>
-          <span class="tabela-diaria-obs" title="${escapeHtml(item.descricao || "")}">${item.descricao ? escapeHtml(item.descricao) : '<span class="tabela-diaria-vazio">—</span>'}</span>
+          <span class="tabela-diaria-data">${SVG_RELOGIO}${dataEf ? formatarDataCurta(dataEf) : "—"}${item.recorrente_id ? '<span class="badge-recorrente-mini" title="Tarefa recorrente">↻</span>' : ""}</span>
+          <button type="button" class="tabela-diaria-obs" data-obs-tarefa-diaria="${item.id}" title="Clique para adicionar ou editar a observação">${item.descricao ? escapeHtml(item.descricao) : '<span class="tabela-diaria-vazio">+ observação</span>'}</button>
         </div>
       `;
     })
@@ -1069,23 +1083,44 @@ function renderTabelaTarefasDiarias(linhas) {
 }
 
 function ligarEventosTabelaTarefasDiarias() {
-  const el = document.getElementById("tarefas-diarias-meses");
+  const el = document.getElementById("tarefas-diarias-dias");
   if (!el) return;
 
-  // Marcar/desmarcar a caixinha muda o status direto (publicada = feita),
+  // Marcar a caixinha já marca a tarefa como feita -- ela sai dessa lista
+  // (as concluídas não aparecem mais aqui) e passa a viver só no Histórico,
   // sem precisar abrir a tarefa inteira pra isso.
   el.querySelectorAll(".checklist-check").forEach((chk) => {
     chk.addEventListener("change", async () => {
+      if (!chk.checked) return;
       chk.disabled = true;
-      await atualizarStatus(chk.dataset.id, chk.checked ? "publicada" : "pendente");
+      await atualizarStatus(chk.dataset.id, "publicada");
     });
   });
 
   // Clicar no título abre a tarefa inteira no modal -- é lá que dá pra
-  // ver/editar responsável, data, observação e status com calma.
+  // ver/editar responsável, data e status com calma.
   el.querySelectorAll("[data-abrir-tarefa-diaria]").forEach((span) => {
     span.addEventListener("click", () => {
       window.abrirModalTarefa(span.dataset.abrirTarefaDiaria, { aoMudar: recarregarGrid });
+    });
+  });
+
+  // Observação: clicar abre um prompt rápido pra escrever/editar o texto
+  // complementar, sem precisar abrir o modal inteiro só pra isso.
+  el.querySelectorAll("[data-obs-tarefa-diaria]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const id = btn.dataset.obsTarefaDiaria;
+      const atual = estado.demandas.find((d) => d.id === id);
+      const novaObs = window.prompt("Observação dessa tarefa:", (atual && atual.descricao) || "");
+      if (novaObs === null) return; // cancelado
+      const { error } = await window.supabaseClient.from("demandas").update({ descricao: novaObs.trim() || null }).eq("id", id);
+      if (error) {
+        mostrarToast("Erro ao salvar a observação: " + error.message);
+        return;
+      }
+      mostrarToast("Observação salva.");
+      await carregarSemanasEDemandas();
+      renderWeekTabs();
     });
   });
 }
@@ -1129,6 +1164,10 @@ function renderFormNovaTarefaDiaria() {
         <input type="text" class="input-obs-diaria" placeholder="Opcional" />
       </div>
     </div>
+    <div class="field">
+      <label class="checkbox-label"><input type="checkbox" class="input-recorrente-diaria" /> Repetir toda semana, nesse mesmo dia da semana</label>
+      <p class="field-hint">A tarefa entra sozinha nas próximas semanas, sempre no dia da semana escolhido acima (ex.: toda quarta-feira).</p>
+    </div>
     <div class="add-form-recorrente-acoes">
       <button type="button" class="btn btn-primary" data-acao="salvar-tarefa-diaria">Adicionar</button>
       <button type="button" class="btn btn-ghost" data-acao="fechar-form-tarefa-diaria">Cancelar</button>
@@ -1153,28 +1192,69 @@ function renderFormNovaTarefaDiaria() {
     const responsavelId = form.querySelector(".input-responsavel").value || null;
     const data = form.querySelector(".input-data-diaria").value || null;
     const observacao = form.querySelector(".input-obs-diaria").value.trim() || null;
+    const querRecorrente = form.querySelector(".input-recorrente-diaria").checked;
+
+    // Repetir toda semana usa o mesmo motor das tarefas recorrentes de
+    // mídia social (tabela "recorrentes" + garantirRecorrentesNasSemanas,
+    // que já roda sozinho a cada carregamento): o "bloco" (dia da semana)
+    // é calculado a partir da data escolhida acima.
+    let bloco = null;
+    if (querRecorrente) {
+      if (!data) {
+        mostrarToast("Escolha uma data pra saber em qual dia da semana repetir.");
+        return;
+      }
+      const diaSemanaJS = new Date(data + "T00:00:00").getDay();
+      bloco = Object.keys(window.OFFSET_DIA_SEMANA).find((k) => window.OFFSET_DIA_SEMANA[k] === diaSemanaJS - 1);
+      if (!bloco) {
+        mostrarToast("Só dá pra repetir em dias de segunda a sexta.");
+        return;
+      }
+    }
 
     btn.disabled = true;
     try {
-      const { error } = await window.supabaseClient.from("demandas").insert({
-        client_id: estado.clientId,
-        titulo,
-        responsavel_id: responsavelId,
-        data_publicacao: data,
-        descricao: observacao,
-        categoria: "diaria",
-        tipo_publicacao: "manual",
-        status: "pendente",
-      });
-      if (error) {
-        mostrarToast("Erro ao salvar: " + error.message);
-        return;
+      if (querRecorrente) {
+        const { error: recErro } = await window.supabaseClient.from("recorrentes").insert({
+          client_id: estado.clientId,
+          bloco,
+          titulo,
+          descricao: observacao,
+          responsavel_id: responsavelId,
+          tipo_publicacao: "manual",
+          categoria: "diaria",
+          ativo: true,
+        });
+        if (recErro) {
+          mostrarToast("Erro ao criar a repetição: " + recErro.message);
+          return;
+        }
+      } else {
+        const { error } = await window.supabaseClient.from("demandas").insert({
+          client_id: estado.clientId,
+          titulo,
+          responsavel_id: responsavelId,
+          data_publicacao: data,
+          descricao: observacao,
+          categoria: "diaria",
+          tipo_publicacao: "manual",
+          status: "pendente",
+        });
+        if (error) {
+          mostrarToast("Erro ao salvar: " + error.message);
+          return;
+        }
       }
       form.querySelector(".input-titulo-diaria").value = "";
       form.querySelector(".input-obs-diaria").value = "";
       form.querySelector(".input-data-diaria").value = hoje;
+      form.querySelector(".input-recorrente-diaria").checked = false;
       form.classList.remove("open");
-      mostrarToast("Tarefa adicionada. Ela já entra sozinha no Checklist de hoje do painel quando chegar a data.");
+      mostrarToast(
+        querRecorrente
+          ? "Tarefa recorrente criada. Ela já entra sozinha nas próximas semanas, nesse dia."
+          : "Tarefa adicionada. Ela já entra sozinha no Checklist de hoje do painel quando chegar a data."
+      );
       await carregarSemanasEDemandas();
       renderWeekTabs();
     } finally {
@@ -1183,12 +1263,20 @@ function renderFormNovaTarefaDiaria() {
   });
 }
 
-// Datas comemorativas: em vez de só a listinha de cards, mostra uma
-// coluna com um mini-calendário (visão geral do mês, com uma bolinha nos
-// dias que já têm alguma data marcada) ao lado da agenda de verdade (a
-// mesma lista/formulário de sempre, reaproveitado de renderBlockCard) --
-// dá pra ver de relance quais dias do mês já estão com data marcada antes
-// de abrir qualquer uma.
+// Datas comemorativas: coluna LATERAL fixa da página inteira (não mais uma
+// aba que troca o conteúdo principal) -- fica sempre visível, com um
+// mini-calendário (visão geral do mês, com uma bolinha nos dias que já têm
+// alguma data marcada) acima da agenda de verdade (a mesma lista/formulário
+// de sempre, reaproveitado de renderBlockCard), não importa qual semana ou
+// aba esteja selecionada no conteúdo principal ao lado.
+function renderSidebarDatasComemorativas() {
+  const el = document.getElementById("cliente-sidebar");
+  if (!el) return;
+  el.innerHTML = renderPacoteCalendarioEAgenda();
+  ligarEventosDoGrid(el);
+  ligarEventosPacoteCalendario(el);
+}
+
 function renderPacoteCalendarioEAgenda() {
   if (!estado.pacoteCalendarioMes) estado.pacoteCalendarioMes = toISODate(new Date()).slice(0, 7);
   const itensPacote = estado.demandas.filter((d) => d.bloco === "datas_comemorativas");
@@ -1250,20 +1338,19 @@ function renderMiniCalendarioPacote(mes, itensPacote) {
   `;
 }
 
-function ligarEventosPacoteCalendario() {
-  const grid = document.getElementById("block-grid");
-  const btnAnterior = grid.querySelector('[data-acao="pacote-mes-anterior"]');
-  const btnProximo = grid.querySelector('[data-acao="pacote-mes-proximo"]');
+function ligarEventosPacoteCalendario(container) {
+  const btnAnterior = container.querySelector('[data-acao="pacote-mes-anterior"]');
+  const btnProximo = container.querySelector('[data-acao="pacote-mes-proximo"]');
   if (btnAnterior) {
     btnAnterior.addEventListener("click", () => {
       estado.pacoteCalendarioMes = somarMes(estado.pacoteCalendarioMes, -1);
-      renderBlocks();
+      renderSidebarDatasComemorativas();
     });
   }
   if (btnProximo) {
     btnProximo.addEventListener("click", () => {
       estado.pacoteCalendarioMes = somarMes(estado.pacoteCalendarioMes, 1);
-      renderBlocks();
+      renderSidebarDatasComemorativas();
     });
   }
 }
@@ -1493,8 +1580,11 @@ function renderDemandaItem(item, isPacote, semana) {
   `;
 }
 
-function ligarEventosDoGrid() {
-  const grid = document.getElementById("block-grid");
+// Reaproveitado tanto pelo #block-grid (Histórico) quanto pela coluna
+// lateral de Datas comemorativas (#cliente-sidebar) -- por isso recebe o
+// container em vez de sempre buscar o mesmo elemento fixo.
+function ligarEventosDoGrid(grid) {
+  grid = grid || document.getElementById("block-grid");
 
   grid.querySelectorAll('[data-acao="abrir-form"]').forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -1741,6 +1831,7 @@ async function init() {
   // formulário aberto, pra não atrapalhar quem está digitando.
   setInterval(() => {
     if (document.querySelector("#block-grid .add-form.open")) return;
+    if (document.querySelector("#cliente-sidebar .add-form.open")) return;
     if (document.querySelector("#form-nova-tarefa-diaria.open")) return;
     renderBlocks();
   }, 30000);

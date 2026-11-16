@@ -198,7 +198,14 @@
           </div>
           ${
             !isPacote && isNovo
-              ? `<p class="field-hint">Essa tarefa nasce como mídia social (é só por aqui, pelos cards de cima, que dá pra criar uma -- tarefas diárias/recorrentes continuam sendo criadas lá embaixo, na coluna do dia).</p>`
+              ? `<p class="field-hint">Essa tarefa nasce como mídia social (é só por aqui, pelos cards de cima, que dá pra criar uma -- tarefas diárias continuam sendo criadas lá embaixo, na seção de tarefas diárias).</p>`
+              : ""
+          }
+          ${
+            !isPacote && isNovo && tarefa.bloco
+              ? `<div class="field">
+                  <label class="checkbox-label"><input type="checkbox" class="input-recorrente-modal" /> Repetir toda ${NOME_DIA_MODAL[tarefa.bloco] || tarefa.bloco} (entra sozinha nas próximas semanas)</label>
+                </div>`
               : ""
           }
           ${
@@ -442,6 +449,33 @@
         // Sem seletor de "Tipo de demanda" nesse modo (ver renderizarModalTarefa)
         // -- toda tarefa criada pelos cards da prévia nasce como mídia social.
         payload.categoria = "social";
+
+        // "Repetir toda <dia>": mesmo motor das tarefas recorrentes de
+        // sempre (tabela "recorrentes" + garantirRecorrentesNasSemanas, que
+        // já roda sozinho a cada carregamento) -- só que agora criado a
+        // partir do card da prévia em vez da antiga coluna por dia.
+        const inputRecorrenteModal = overlay.querySelector(".input-recorrente-modal");
+        if (inputRecorrenteModal && inputRecorrenteModal.checked) {
+          const { data: recData, error: recErro } = await window.supabaseClient.from("recorrentes").insert({
+            client_id: payload.client_id,
+            bloco: payload.bloco,
+            titulo: payload.titulo,
+            descricao: payload.descricao,
+            tipo_publicacao: payload.tipo_publicacao,
+            responsavel_id: payload.responsavel_id,
+            link: payload.link,
+            link_referencia: payload.link_referencia,
+            hora_publicacao: payload.hora_publicacao,
+            categoria: "social",
+            rede_social: payload.rede_social || null,
+            ativo: true,
+          });
+          if (recErro) {
+            mostrarMsgModal("Erro ao criar a repetição: " + recErro.message, true);
+            return;
+          }
+          payload.recorrente_id = recData[0].id;
+        }
 
         const { error } = await window.supabaseClient.from("demandas").insert(payload);
         if (error) {
