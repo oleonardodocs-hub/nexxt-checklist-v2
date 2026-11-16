@@ -1151,6 +1151,45 @@ a { color: inherit; }
   box-shadow: 0 0 0 1px var(--surface-1), 0 0 0 2px var(--text-primary);
 }
 
+/* Botão compacto que substitui a fileira de bolinhas sempre visível no
+   topo da página do cliente -- só mostra a cor atual, e abre as opções
+   por cima quando clicado. */
+.cor-cliente-picker { position: relative; display: inline-block; margin-top: 6px; }
+.btn-cor-cliente-atual {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--border-hairline);
+  background: var(--surface-1);
+  border-radius: 999px;
+  padding: 5px 12px 5px 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.btn-cor-cliente-atual:hover { background: var(--surface-2); }
+.bolinha-cor-atual {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1px rgba(11,11,11,0.12);
+  flex-shrink: 0;
+}
+.cor-cliente-opcoes {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 20;
+  background: var(--surface-1);
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.16);
+  width: max-content;
+}
+.cor-cliente-opcoes.open { display: flex; }
+
 .section-title {
   font-size: 13px;
   font-weight: 700;

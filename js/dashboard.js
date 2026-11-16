@@ -128,6 +128,7 @@ async function carregarDados() {
   const colaboradoresPorId = {};
   (colaboradores || []).forEach((c) => (colaboradoresPorId[c.id] = c.nome));
 
+  ultimosClientesCarregados = clients || [];
   renderClientes(clients || [], weeks || [], demandas || [], colaboradoresPorId);
 }
 
@@ -135,6 +136,12 @@ async function carregarDados() {
 // selos de horário (contagem regressiva) de minuto em minuto sem precisar
 // buscar tudo de novo no GitHub.
 let ultimoChecklist = null;
+
+// Guarda a última lista de clientes carregada, só pra saber quantos já
+// existem na hora de abrir o form de "+ Novo cliente" -- usado pra já
+// sugerir uma cor sozinho (revezando a paleta), em vez de sempre cair na
+// mesma cor padrão pra todo cliente novo.
+let ultimosClientesCarregados = [];
 
 function renderClientes(clients, weeks, demandas, colaboradoresPorId) {
   const grid = document.getElementById("client-grid");
@@ -406,7 +413,20 @@ async function init() {
 }
 
 document.getElementById("btn-toggle-add").addEventListener("click", () => {
-  document.getElementById("form-add-client").classList.toggle("open");
+  const form = document.getElementById("form-add-client");
+  const vaiAbrir = !form.classList.contains("open");
+  form.classList.toggle("open");
+  if (!vaiAbrir) return;
+
+  // Já sugere uma cor sozinho (revezando a paleta pelo número de clientes
+  // já cadastrados), em vez de sempre cair na mesma cor padrão -- quem tiver
+  // instala alguma preferência diferente pode trocar nas bolinhas abaixo
+  // mesmo assim, antes de salvar.
+  const slotSugerido = window.PALETA_CLIENTES[ultimosClientesCarregados.length % window.PALETA_CLIENTES.length].slot;
+  document.getElementById("novo-cor").value = slotSugerido;
+  renderSwatches(document.getElementById("novo-cor-swatches"), slotSugerido, (slot) => {
+    document.getElementById("novo-cor").value = slot;
+  });
 });
 
 renderSwatches(document.getElementById("novo-cor-swatches"), document.getElementById("novo-cor").value, (slot) => {

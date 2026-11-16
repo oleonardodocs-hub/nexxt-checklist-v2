@@ -272,13 +272,34 @@ async function pararRecorrencia(recorrenteId) {
 }
 
 // ------------------------------------------------------------------
-// Cor do cliente (bolinhas de paleta no topo, embaixo do título -- o nome
-// do cliente já aparece no título da página, então não repete de novo
-// aqui embaixo em formato de botão).
+// Cor do cliente (botão compacto no topo, embaixo do título)
 // ------------------------------------------------------------------
 
+// Em vez da fileira de 8 bolinhas sempre visível (não ficava legal), mostra
+// só um botãozinho com a cor atual -- clicar nele abre as opções de cor por
+// cima, escolher uma fecha de novo. A cor de cada cliente já nasce sozinha
+// na hora de criar (ver dashboard.js); isso aqui é só pra quando precisar
+// trocar depois.
 function renderClientSwitcher() {
-  renderSwatches(document.getElementById("client-color-swatches"), estado.cliente ? estado.cliente.cor : null, atualizarCorCliente);
+  const el = document.getElementById("client-color-swatches");
+  if (!el) return;
+  const cor = estado.cliente ? estado.cliente.cor : null;
+
+  el.innerHTML = `
+    <div class="cor-cliente-picker">
+      <button type="button" class="btn-cor-cliente-atual" id="btn-cor-cliente-toggle" title="Clique para trocar a cor do cliente">
+        <span class="bolinha-cor-atual" style="background:${corClienteParaCSS(cor)}"></span>
+        Cor do cliente
+      </button>
+      <div class="swatch-row cor-cliente-opcoes" id="cor-cliente-opcoes"></div>
+    </div>
+  `;
+
+  renderSwatches(document.getElementById("cor-cliente-opcoes"), cor, atualizarCorCliente);
+
+  document.getElementById("btn-cor-cliente-toggle").addEventListener("click", () => {
+    document.getElementById("cor-cliente-opcoes").classList.toggle("open");
+  });
 }
 
 async function atualizarCorCliente(slot) {
@@ -657,27 +678,29 @@ function renderWeekTabs() {
 
   renderWeekBanner();
   renderBlocks();
-  renderPreviaProximaSemana();
+  renderPreviaSemana("previa-semana-atual", 0, "Prévia desta semana");
+  renderPreviaSemana("previa-proxima-semana", 7, "Prévia da próxima semana");
 }
 
-// Prévia da próxima semana: um bloco à parte, acima do pipeline, com um
-// cartãozinho por dia (segunda a sexta) da semana seguinte à atual NO
-// CALENDÁRIO (segunda-feira de hoje + 7 dias) -- de propósito não usa o
-// status "aguardando_validacao" pra achar essa semana, porque esse status
-// pode ficar numa semana mais à frente (ex.: se uma semana "disponível"
-// no meio do caminho nunca foi validada à mão); o que o Léo quer ver aqui
-// é sempre a semana seguinte de verdade, não a próxima a ser validada.
+// Prévia de uma semana (essa ou a seguinte): um bloco à parte, acima do
+// pipeline, com um cartãozinho por dia (segunda a sexta) da semana EM
+// RELAÇÃO AO CALENDÁRIO (segunda-feira de hoje + `offsetDias`) -- de
+// propósito não usa o status "aguardando_validacao"/"validada" pra achar a
+// semana, porque esses status podem ficar numa semana mais à frente (ex.:
+// se uma semana "disponível" no meio do caminho nunca foi validada à mão);
+// o que o Léo quer ver aqui é sempre a semana certa pelo calendário, não a
+// próxima a ser validada.
 // Fica verde quando a tarefa principal de mídia social daquele dia já está
 // aprovada (validada/publicada) e vermelho enquanto não estiver -- inclusive
-// quando ainda nem foi criada --, pra dar uma visão rápida de "a semana que
-// vem já está pronta?". O prazo mostrado é sempre a quinta-feira daquela
-// semana (segunda-feira + 3 dias).
-function renderPreviaProximaSemana() {
-  const el = document.getElementById("previa-proxima-semana");
+// quando ainda nem foi criada --, pra dar uma visão rápida de "essa semana
+// já está pronta?". O prazo mostrado é sempre a quinta-feira daquela semana
+// (segunda-feira + 3 dias).
+function renderPreviaSemana(elId, offsetDias, titulo) {
+  const el = document.getElementById(elId);
   if (!el) return;
 
-  const inicioProximaSemana = addDias(toISODate(segundaFeiraDe(new Date())), 7);
-  const semana = estado.weeks.find((w) => w.semana_inicio === inicioProximaSemana);
+  const inicioDaSemana = addDias(toISODate(segundaFeiraDe(new Date())), offsetDias);
+  const semana = estado.weeks.find((w) => w.semana_inicio === inicioDaSemana);
   if (!semana) {
     el.style.display = "none";
     el.innerHTML = "";
@@ -738,7 +761,7 @@ function renderPreviaProximaSemana() {
       <div class="previa-header">
         <div class="previa-header-titulo">
           <span class="previa-icone-badge">${SVG_RELOGIO}</span>
-          <strong>Prévia da próxima semana</strong>
+          <strong>${escapeHtml(titulo)}</strong>
         </div>
         <span class="previa-prazo">Prazo máximo: ${formatarDataLonga(prazo)}</span>
       </div>
