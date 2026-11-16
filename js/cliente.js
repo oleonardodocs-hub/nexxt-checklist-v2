@@ -20,14 +20,6 @@ const NOME_STATUS = {
 };
 const NOME_DIA_LONGO = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
 const NOME_MES = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
-// Rede social em que aquela demanda de mídia social vai ser publicada --
-// só informativo (não muda nenhuma regra), aparece como um selo no card.
-const NOME_REDE_SOCIAL = {
-  instagram: "Instagram",
-  facebook: "Facebook",
-  linkedin: "LinkedIn",
-  youtube: "YouTube",
-};
 const SVG_CHEVRON_DIARIO =
   '<svg class="dia-diario-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>';
 
@@ -746,14 +738,12 @@ function renderPreviaSemana(elId, offsetDias, titulo, tema, tagTexto) {
     let aprovada = false;
     let textoStatus = "Nenhuma tarefa de mídia social ainda";
     let tituloTarefa = "";
-    let nomeRede = null;
     let podeAprovar = false;
     if (principal) {
       pronta = true;
       aprovada = principal.status === "validada" || principal.status === "publicada";
       textoStatus = NOME_STATUS[principal.status] || principal.status;
       tituloTarefa = principal.titulo;
-      nomeRede = principal.rede_social ? NOME_REDE_SOCIAL[principal.rede_social] : null;
       podeAprovar = !aprovada;
     }
     if (aprovada) totalAprovadas++;
@@ -778,7 +768,7 @@ function renderPreviaSemana(elId, offsetDias, titulo, tema, tagTexto) {
             principal
               ? `<span class="previa-linha-badges">
                   <span class="pill pill-${principal.status}">${escapeHtml(textoStatus)}</span>
-                  ${nomeRede ? `<span class="demanda-chip demanda-chip-rede demanda-chip-rede-${principal.rede_social}">${nomeRede}</span>` : ""}
+                  ${chipsRedesSociaisHTML(principal)}
                 </span>`
               : ""
           }
@@ -1491,12 +1481,8 @@ function camposTarefaHTML(isPacote, item, bloco) {
       </div>
       <div class="field">
         <label>Rede social</label>
-        <select class="input-rede-social">
-          <option value="" ${!item.rede_social ? "selected" : ""}>Não definida</option>
-          ${Object.entries(NOME_REDE_SOCIAL)
-            .map(([valor, nome]) => `<option value="${valor}" ${item.rede_social === valor ? "selected" : ""}>${nome}</option>`)
-            .join("")}
-        </select>
+        ${redesSociaisCheckboxesHTML(item, "input-rede-social")}
+        <p class="field-hint">Pode marcar mais de uma.</p>
       </div>
     </div>
     <div class="field">
@@ -1561,7 +1547,6 @@ function renderDemandaItem(item, isPacote, semana) {
   const podeAprovar = categoria === "social" && item.status !== "validada" && item.status !== "publicada";
 
   const colaborador = item.responsavel_id ? estado.colaboradores.find((c) => c.id === item.responsavel_id) : null;
-  const nomeRede = item.rede_social ? NOME_REDE_SOCIAL[item.rede_social] : null;
 
   // Cada informação vira um chip próprio (em vez de tudo numa linha de
   // texto só) -- fica mais fácil de escanear, e o responsável ganha um
@@ -1585,7 +1570,7 @@ function renderDemandaItem(item, isPacote, semana) {
         </div>
         <div class="demanda-card-badges">
           <span class="pill pill-${item.status}">${NOME_STATUS[item.status]}</span>
-          ${nomeRede ? `<span class="demanda-chip demanda-chip-rede demanda-chip-rede-${item.rede_social}">${nomeRede}</span>` : ""}
+          ${chipsRedesSociaisHTML(item)}
           ${categoria === "diaria" ? '<span class="badge-categoria">Diária</span>' : ""}
           ${item.recorrente_id ? '<span class="badge-recorrente">Recorrente</span>' : ""}
           ${badgeHorarioHTML(item, dataEfetiva, atrasada)}
@@ -1734,7 +1719,7 @@ async function salvarTarefa(bloco, weekId) {
 
   const descricao = form.querySelector(".input-descricao").value.trim() || null;
   const tipoPublicacao = form.querySelector(".input-tipo").value;
-  const redeSocial = form.querySelector(".input-rede-social").value || null;
+  const redeSocial = obterRedesSociaisMarcadas(form, "input-rede-social");
   const responsavelId = form.querySelector(".input-responsavel").value || null;
   const link = form.querySelector(".input-link").value.trim() || null;
   const linkReferencia = form.querySelector(".input-link-referencia").value.trim() || null;

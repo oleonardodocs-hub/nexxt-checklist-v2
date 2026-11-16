@@ -90,6 +90,71 @@ const SVG_CHAVE =
 const SVG_PASTA =
   '<svg class="icone-pasta" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg>';
 
+// Redes sociais possíveis pra uma publicação -- uma mesma tarefa pode
+// marcar mais de uma (ex.: Instagram + LinkedIn no mesmo post), por isso o
+// campo "rede_social" guarda os valores separados por vírgula (ex.:
+// "instagram,linkedin"). Tarefas antigas com uma rede só (sem vírgula)
+// continuam funcionando normalmente.
+window.REDES_SOCIAIS_LISTA = [
+  { valor: "instagram", nome: "Instagram" },
+  { valor: "facebook", nome: "Facebook" },
+  { valor: "linkedin", nome: "LinkedIn" },
+  { valor: "youtube", nome: "YouTube" },
+];
+
+function listaRedesSociais(item) {
+  const valor = item && item.rede_social;
+  if (!valor) return [];
+  return String(valor)
+    .split(",")
+    .map((v) => v.trim())
+    .filter(Boolean);
+}
+
+function nomeDeRedeSocial(valor) {
+  const encontrada = window.REDES_SOCIAIS_LISTA.find((r) => r.valor === valor);
+  return encontrada ? encontrada.nome : valor;
+}
+
+// Um chip por rede marcada (em vez de um chip só) -- é o que entra tanto na
+// linha da Prévia quanto no card de tarefa do Histórico/pacote.
+function chipsRedesSociaisHTML(item) {
+  return listaRedesSociais(item)
+    .map((valor) => `<span class="demanda-chip demanda-chip-rede demanda-chip-rede-${valor}">${nomeDeRedeSocial(valor)}</span>`)
+    .join("");
+}
+
+// Grupo de checkboxes (em vez do antigo <select> de uma rede só) -- já vem
+// com as redes atuais marcadas. `classeGrupo` é a classe usada depois pra
+// achar esse grupo de novo na hora de salvar (ver obterRedesSociaisMarcadas).
+function redesSociaisCheckboxesHTML(item, classeGrupo) {
+  const marcadas = new Set(listaRedesSociais(item));
+  return `
+    <div class="${classeGrupo} checkboxes-rede-social">
+      ${window.REDES_SOCIAIS_LISTA
+        .map(
+          (r) => `
+            <label class="checkbox-rede-social">
+              <input type="checkbox" value="${r.valor}" ${marcadas.has(r.valor) ? "checked" : ""} />
+              ${r.nome}
+            </label>
+          `
+        )
+        .join("")}
+    </div>
+  `;
+}
+
+// Lê o grupo de checkboxes renderizado por redesSociaisCheckboxesHTML (via
+// `classeGrupo`, dentro de `root`) e devolve a string pronta pra salvar no
+// campo "rede_social" -- "instagram,linkedin", ou null se nenhuma marcada.
+function obterRedesSociaisMarcadas(root, classeGrupo) {
+  const grupo = root.querySelector("." + classeGrupo);
+  if (!grupo) return null;
+  const escolhidas = Array.from(grupo.querySelectorAll('input[type="checkbox"]:checked')).map((i) => i.value);
+  return escolhidas.length ? escolhidas.join(",") : null;
+}
+
 // Toda demanda é "social" (conteúdo de mídia social, linha editorial) ou
 // "diaria" (tarefa operacional, pode se repetir várias vezes no mesmo
 // dia). Tarefas antigas sem esse campo contam como "social", que é o uso

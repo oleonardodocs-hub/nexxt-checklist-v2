@@ -25,13 +25,6 @@
     manual_pendente: "Publicação manual pendente",
     publicada: "Publicada",
   };
-  const NOME_REDE_SOCIAL_MODAL = {
-    instagram: "Instagram",
-    facebook: "Facebook",
-    linkedin: "LinkedIn",
-    youtube: "YouTube",
-  };
-
   function escaparHtml(str) {
     const div = document.createElement("div");
     div.textContent = str || "";
@@ -232,12 +225,8 @@
               categoria === "social"
                 ? `<div class="field">
                     <label>Rede social</label>
-                    <select class="input-rede-social-modal">
-                      <option value="" ${!tarefa.rede_social ? "selected" : ""}>Não definida</option>
-                      ${Object.entries(NOME_REDE_SOCIAL_MODAL)
-                        .map(([valor, nome]) => `<option value="${valor}" ${tarefa.rede_social === valor ? "selected" : ""}>${nome}</option>`)
-                        .join("")}
-                    </select>
+                    ${redesSociaisCheckboxesHTML(tarefa, "input-rede-social-modal")}
+                    <p class="field-hint">Pode marcar mais de uma, se a mesma publicação for pra vários lugares.</p>
                   </div>`
                 : `<div class="field">
                     <label>Responsável</label>
@@ -429,8 +418,7 @@
       };
       const inputCategoria = overlay.querySelector(".input-categoria-modal");
       if (inputCategoria) payload.categoria = inputCategoria.value;
-      const inputRedeSocial = overlay.querySelector(".input-rede-social-modal");
-      if (inputRedeSocial) payload.rede_social = inputRedeSocial.value || null;
+      if (overlay.querySelector(".input-rede-social-modal")) payload.rede_social = obterRedesSociaisMarcadas(overlay, "input-rede-social-modal");
       const inputData = overlay.querySelector(".input-data-modal");
       const inputHora = overlay.querySelector(".input-hora-modal");
       const inputPrazo = overlay.querySelector(".input-prazo-modal");

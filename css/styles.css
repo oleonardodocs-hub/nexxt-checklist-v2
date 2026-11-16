@@ -1312,6 +1312,25 @@ a { color: inherit; }
   height: 16px;
   accent-color: var(--accent);
 }
+.checkboxes-rede-social {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin-top: 4px;
+}
+.checkbox-rede-social {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.checkbox-rede-social input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--accent);
+}
 .aviso-recorrente {
   display: flex;
   align-items: center;
