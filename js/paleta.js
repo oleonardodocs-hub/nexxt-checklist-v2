@@ -138,6 +138,64 @@ function badgeHorarioHTML(item, dataEfetiva, atrasada) {
   return `<span class="${classe}">${SVG_RELOGIO}${texto}</span>`;
 }
 
+// Andamento de cada tarefa (0 a 100%), baseado só no status -- dá pra ver
+// de relance o quão avançada ela está (ainda nem começou? já tá em
+// produção? só falta aprovar?) sem precisar abrir o card. As cores
+// acompanham os mesmos tons já usados nas pills de status.
+const PROGRESSO_POR_STATUS = {
+  pendente: { pct: 0, cor: "var(--text-muted)" },
+  em_producao: { pct: 45, cor: "var(--accent)" },
+  aguardando_validacao: { pct: 75, cor: "var(--status-warning)" },
+  agendada: { pct: 90, cor: "var(--accent)" },
+  manual_pendente: { pct: 90, cor: "var(--status-serious)" },
+  validada: { pct: 95, cor: "var(--status-good)" },
+  publicada: { pct: 100, cor: "var(--status-good)" },
+};
+function progressoDaTarefa(status) {
+  return PROGRESSO_POR_STATUS[status] || { pct: 0, cor: "var(--text-muted)" };
+}
+
+// Anel circular de progresso (SVG embutido) -- usado tanto no andamento de
+// cada tarefa quanto no progresso semanal do cliente. `pct` de 0 a 100,
+// `cor` qualquer valor de CSS (var(--...) ou hex), `tamanho` em pixels.
+// `textoNoMeio` é opcional -- por padrão mostra a própria porcentagem.
+function anelProgressoHTML(pct, cor, tamanho, textoNoMeio) {
+  tamanho = tamanho || 38;
+  const espessura = Math.max(3, Math.round(tamanho * 0.11));
+  const raio = (tamanho - espessura) / 2;
+  const centro = tamanho / 2;
+  const circ = 2 * Math.PI * raio;
+  const pctSeguro = Math.max(0, Math.min(100, pct));
+  const offset = circ * (1 - pctSeguro / 100);
+  const texto = textoNoMeio !== undefined ? textoNoMeio : `${pctSeguro}%`;
+  const fonteTexto = Math.max(8, Math.round(tamanho * 0.26));
+
+  return `
+    <svg class="anel-progresso" width="${tamanho}" height="${tamanho}" viewBox="0 0 ${tamanho} ${tamanho}" role="img" aria-label="${pctSeguro}% concluído">
+      <circle cx="${centro}" cy="${centro}" r="${raio}" fill="none" stroke="var(--border-hairline)" stroke-width="${espessura}" />
+      <circle cx="${centro}" cy="${centro}" r="${raio}" fill="none" stroke="${cor}" stroke-width="${espessura}" stroke-linecap="round"
+        stroke-dasharray="${circ.toFixed(2)}" stroke-dashoffset="${offset.toFixed(2)}"
+        transform="rotate(-90 ${centro} ${centro})" />
+      ${
+        texto
+          ? `<text x="${centro}" y="${centro}" text-anchor="middle" dominant-baseline="central" class="anel-progresso-texto" style="font-size:${fonteTexto}px;">${texto}</text>`
+          : ""
+      }
+    </svg>
+  `;
+}
+
+// Iniciais de um nome (pra mostrar num avatarzinho redondo, em vez do nome
+// inteiro escrito, nos cards mais compactos).
+function inicialAvatar(nome) {
+  if (!nome) return "?";
+  const partes = nome.trim().split(/\s+/).filter(Boolean);
+  if (!partes.length) return "?";
+  const primeira = partes[0][0] || "";
+  const ultima = partes.length > 1 ? partes[partes.length - 1][0] || "" : "";
+  return (primeira + ultima).toUpperCase() || "?";
+}
+
 // Desenha a fileira de bolinhas de cor dentro de `container` e devolve o slot
 // escolhido via `aoEscolher(slot)`. `valorAtual` marca a bolinha já selecionada.
 function renderSwatches(container, valorAtual, aoEscolher) {

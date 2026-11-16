@@ -1103,27 +1103,46 @@ function renderDemandaItem(item, isPacote, semana) {
   const atrasada = tarefaAtrasada(item, dataEfetiva);
   const categoria = categoriaDaTarefa(item);
   const podeAprovar = categoria === "social" && item.status !== "validada" && item.status !== "publicada";
+  // Anel circular (ver paleta.js) mostrando o quão avançada a tarefa está,
+  // só pelo status -- dá pra bater o olho e saber se é só uma ideia anotada
+  // (0%) ou se já tá quase pronta (perto de 100%), sem abrir o card.
+  const progresso = progressoDaTarefa(item.status);
 
   const colaborador = item.responsavel_id ? estado.colaboradores.find((c) => c.id === item.responsavel_id) : null;
-  const resumoBits = [];
-  if (colaborador) resumoBits.push(colaborador.nome);
-  if (item.tipo_publicacao === "manual") resumoBits.push("Manual");
-  if (item.data_publicacao) resumoBits.push(formatarDataCurta(item.data_publicacao));
-  if (item.prazo_pacote) resumoBits.push("Prazo: " + formatarDataCurta(item.prazo_pacote));
-  const linhaResumo = item.descricao || (resumoBits.length ? resumoBits.join(" · ") : "");
+
+  // Cada informação vira um chip próprio (em vez de tudo numa linha de
+  // texto só) -- fica mais fácil de escanear, e o responsável ganha um
+  // avatarzinho com as iniciais em vez de só o nome corrido.
+  const chips = [];
+  if (colaborador) {
+    chips.push(
+      `<span class="demanda-chip demanda-chip-pessoa"><span class="demanda-chip-avatar">${escapeHtml(inicialAvatar(colaborador.nome))}</span>${escapeHtml(colaborador.nome)}</span>`
+    );
+  }
+  if (item.tipo_publicacao === "manual") chips.push(`<span class="demanda-chip">Manual</span>`);
+  if (item.data_publicacao) chips.push(`<span class="demanda-chip">${formatarDataCurta(item.data_publicacao)}</span>`);
+  if (item.prazo_pacote) chips.push(`<span class="demanda-chip">Prazo: ${formatarDataCurta(item.prazo_pacote)}</span>`);
 
   return `
     <div class="demanda-item categoria-${categoria} ${atrasada ? "is-atrasada" : ""}" data-id="${item.id}" style="--client-color:${corCliente}">
       <div class="demanda-abrir" data-abrir-tarefa="${item.id}" role="button" tabindex="0" title="Clique para abrir e editar essa tarefa">
-        <div class="demanda-title">
-          <span class="pill pill-${item.status}">${NOME_STATUS[item.status]}</span>
-          ${escapeHtml(item.titulo)}
-          ${categoria === "diaria" ? '<span class="badge-categoria">Diária</span>' : ""}
-          ${item.recorrente_id ? '<span class="badge-recorrente">Recorrente</span>' : ""}
-          ${badgeHorarioHTML(item, dataEfetiva, atrasada)}
-          ${atrasada ? '<span class="badge-atrasada">Atrasada</span>' : ""}
+        <div class="demanda-card-topo">
+          <span class="demanda-anel" title="Andamento: ${progresso.pct}%">${anelProgressoHTML(progresso.pct, progresso.cor, 38)}</span>
+          <div class="demanda-card-info">
+            <div class="demanda-card-titulo-linha">
+              <span class="demanda-card-titulo">${escapeHtml(item.titulo)}</span>
+              ${atrasada ? '<span class="badge-atrasada">Atrasada</span>' : ""}
+            </div>
+            <div class="demanda-card-badges">
+              <span class="pill pill-${item.status}">${NOME_STATUS[item.status]}</span>
+              ${categoria === "diaria" ? '<span class="badge-categoria">Diária</span>' : ""}
+              ${item.recorrente_id ? '<span class="badge-recorrente">Recorrente</span>' : ""}
+              ${badgeHorarioHTML(item, dataEfetiva, atrasada)}
+            </div>
+          </div>
         </div>
-        ${linhaResumo ? `<div class="demanda-meta demanda-meta-resumo">${escapeHtml(linhaResumo)}</div>` : ""}
+        ${item.descricao ? `<div class="demanda-meta demanda-meta-resumo">${escapeHtml(item.descricao)}</div>` : ""}
+        ${chips.length ? `<div class="demanda-card-chips">${chips.join("")}</div>` : ""}
       </div>
       ${podeAprovar ? `<button class="btn btn-aprovar btn-aprovar-encolhido" data-acao="aprovar-tarefa" data-id="${item.id}">Aprovar</button>` : ""}
     </div>

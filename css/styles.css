@@ -413,6 +413,25 @@ a { color: inherit; }
   justify-content: center;
 }
 
+.anel-progresso-texto {
+  fill: var(--text-primary);
+  font-weight: 700;
+  font-family: inherit;
+}
+
+/* Progresso semanal do cliente, em anel (ver anelProgressoHTML em paleta.js) */
+.progresso-semanal-anel {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.progresso-semanal-svg { flex-shrink: 0; }
+.progresso-semanal-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
 /* Meter (barra de progresso) */
 .meter-block .meter-label {
   display: flex;
@@ -752,18 +771,81 @@ a { color: inherit; }
   gap: 10px;
   border: 1px solid var(--border-hairline);
   border-left: 3px solid color-mix(in srgb, var(--client-color, var(--accent)) 55%, transparent);
-  border-radius: var(--radius-sm);
-  padding: 9px 10px;
-  margin-bottom: 8px;
+  border-radius: var(--radius-md);
+  padding: 12px 13px;
+  margin-bottom: 10px;
   background: color-mix(in srgb, var(--client-color, var(--accent)) 5%, var(--surface-2));
-  box-shadow: 0 1px 2px rgba(11,11,11,0.05);
+  box-shadow: 0 1px 3px rgba(11,11,11,0.06);
   transition: transform .15s ease, box-shadow .15s ease;
 }
 .demanda-item:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(11,11,11,0.10);
+  box-shadow: 0 8px 20px rgba(11,11,11,0.12);
 }
 .demanda-item:last-child { margin-bottom: 0; }
+
+.demanda-card-topo {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.demanda-anel { flex-shrink: 0; }
+.demanda-card-info {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.demanda-card-titulo-linha {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  row-gap: 4px;
+}
+.demanda-card-titulo {
+  font-size: 13px;
+  font-weight: 700;
+}
+.demanda-card-badges {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  row-gap: 5px;
+  margin-top: 5px;
+}
+.demanda-card-chips {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.demanda-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  background: var(--surface-1);
+  border: 1px solid var(--border-hairline);
+  padding: 3px 9px 3px 3px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.demanda-chip:not(.demanda-chip-pessoa) { padding: 3px 9px; }
+.demanda-chip-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--client-color, var(--accent)) 70%, var(--accent));
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
 
 /* A demanda de mídia social é a demanda principal (o conteúdo que vai pro
    ar) -- fica com a cor do cliente mais presente e um pouco mais elevada,

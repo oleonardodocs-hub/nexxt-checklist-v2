@@ -265,14 +265,9 @@ function renderClientes(clients, weeks, demandas, colaboradoresPorId) {
             <span class="next-step">${nextStep}</span>
           </div>
           <div class="client-card-side">
-            <div class="meter-block">
-              <div class="meter-label">
-                <span>Progresso da semana</span>
-                <span class="meter-value">${pct}%</span>
-              </div>
-              <div class="meter-track">
-                <div class="meter-fill ${pct === 100 && total > 0 ? "is-complete" : ""}" style="width:${pct}%"></div>
-              </div>
+            <div class="progresso-semanal-anel">
+              <span class="progresso-semanal-svg">${anelProgressoHTML(pct, pct === 100 && total > 0 ? "var(--status-good)" : "var(--accent)", 56)}</span>
+              <span class="progresso-semanal-label">Progresso da semana</span>
             </div>
             <div class="stat-row">
               <div class="stat-tile ${pendentesValidacao > 0 ? "has-warning" : ""}">
