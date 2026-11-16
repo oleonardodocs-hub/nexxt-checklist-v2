@@ -35,6 +35,7 @@ let estado = {
   editandoDrive: false,
   weekTabSelecionada: null, // id da semana, "pacote" ou "historico"
   historicoMes: null, // "AAAA-MM" selecionado dentro do Histórico
+  calendarioMes: null, // "AAAA-MM" selecionado dentro do Calendário editorial
 };
 
 function segundaFeiraDe(date) {
@@ -678,8 +679,8 @@ function renderWeekTabs() {
 
   renderWeekBanner();
   renderBlocks();
-  renderPreviaSemana("previa-semana-atual", 0, "Prévia desta semana", "roxo");
-  renderPreviaSemana("previa-proxima-semana", 7, "Prévia da próxima semana", "azul");
+  renderPreviaSemana("previa-semana-atual", 0, "Prévia desta semana", "roxo", "Esta semana");
+  renderPreviaSemana("previa-proxima-semana", 7, "Prévia da próxima semana", "azul", "Próxima semana");
 }
 
 // Prévia de uma semana (essa ou a seguinte): um bloco à parte, acima do
@@ -695,7 +696,7 @@ function renderWeekTabs() {
 // quando ainda nem foi criada --, pra dar uma visão rápida de "essa semana
 // já está pronta?". O prazo mostrado é sempre a quinta-feira daquela semana
 // (segunda-feira + 3 dias).
-function renderPreviaSemana(elId, offsetDias, titulo, tema) {
+function renderPreviaSemana(elId, offsetDias, titulo, tema, tagTexto) {
   const el = document.getElementById(elId);
   if (!el) return;
 
@@ -757,9 +758,12 @@ function renderPreviaSemana(elId, offsetDias, titulo, tema) {
     `;
   }).join("");
 
+  const pctAprovadas = Math.round((totalAprovadas / DIAS_SEMANA.length) * 100);
+
   el.style.display = "block";
   el.innerHTML = `
     <div class="previa-semana-card previa-tema-${tema || "roxo"}">
+      <span class="previa-semana-tag">${escapeHtml(tagTexto || titulo)}</span>
       <div class="previa-semana-topo">
         <span class="previa-semana-icone">${SVG_RELOGIO}</span>
         <div class="previa-semana-info">
@@ -771,6 +775,7 @@ function renderPreviaSemana(elId, offsetDias, titulo, tema) {
         <span class="previa-semana-stat-numero">${totalAprovadas}/${DIAS_SEMANA.length}</span>
         <span class="previa-semana-stat-label">prontas e aprovadas</span>
       </div>
+      <div class="previa-semana-barra-trilho"><div class="previa-semana-barra-fill" style="width:${pctAprovadas}%"></div></div>
       <div class="previa-semana-linhas">${cards}</div>
     </div>
   `;
@@ -943,18 +948,19 @@ function renderBlocks() {
   ligarEventosDoGrid();
 
   secaoRecorrentes.style.display = "";
-  renderRecorrentesGrid(semana);
+  renderRecorrentesLista(semana);
 }
 
-// Seção de tarefas diárias/recorrentes: uma coluna por dia da semana, com
-// cabeçalho colorido e, dentro, um checklist bem simples -- só caixinha de
-// marcar + título. Pra ver/editar responsável, horário etc. basta clicar
+// Seção de tarefas diárias/recorrentes: UM checklist só (não mais 5
+// colunas separadas), agrupado por dia com um selinho colorido, e UMA
+// única forma de criar (botão no topo da seção, com um campo pra
+// escolher o dia). Pra ver/editar responsável, horário etc. basta clicar
 // no título e abrir a tarefa inteira no modal.
-function renderRecorrentesGrid(semana) {
-  const grid = document.getElementById("recorrentes-grid");
-  if (!grid) return;
+function renderRecorrentesLista(semana) {
+  const lista = document.getElementById("recorrentes-lista");
+  if (!lista) return;
 
-  grid.innerHTML = DIAS_SEMANA.map((dia) => {
+  lista.innerHTML = DIAS_SEMANA.map((dia) => {
     const itens = estado.demandas.filter((d) => d.week_id === semana.id && d.bloco === dia && categoriaDaTarefa(d) === "diaria");
     const feitas = itens.filter((i) => i.status === "publicada").length;
     const cor = DIA_COR_RECORRENTE[dia];
@@ -973,47 +979,40 @@ function renderRecorrentesGrid(semana) {
         .join("") || '<p class="checklist-vazio">Nenhuma tarefa.</p>';
 
     return `
-      <div class="coluna-recorrente">
-        <div class="coluna-recorrente-cabecalho" style="background:${cor}">
-          <span>${NOME_DIA[dia].replace("-feira", "")}</span>
-          <span class="coluna-recorrente-contagem">${feitas}/${itens.length}</span>
+      <div class="recorrente-dia-grupo">
+        <div class="recorrente-dia-cabecalho">
+          <span class="recorrente-dia-tag" style="background:${cor}">${NOME_DIA[dia].replace("-feira", "")}</span>
+          <span class="recorrente-dia-contagem">${feitas}/${itens.length}</span>
         </div>
-        <div class="coluna-recorrente-lista">${linhas}</div>
-        <button type="button" class="btn btn-ghost btn-add-recorrente" data-acao="abrir-form-recorrente" data-bloco="${dia}">+ Adicionar tarefa</button>
-        <div class="add-form-recorrente" data-form-recorrente-bloco="${dia}">
-          <div class="field"><input type="text" class="input-titulo-recorrente" placeholder="Nome da tarefa" /></div>
-          <div class="add-form-recorrente-acoes">
-            <button type="button" class="btn btn-primary" data-acao="salvar-recorrente" data-bloco="${dia}" data-week-id="${semana.id}">Adicionar</button>
-            <button type="button" class="btn btn-ghost" data-acao="fechar-form-recorrente" data-bloco="${dia}">Cancelar</button>
-          </div>
-        </div>
+        <div class="recorrente-dia-linhas">${linhas}</div>
       </div>
     `;
   }).join("");
 
-  ligarEventosRecorrentesGrid();
+  ligarEventosRecorrentesLista(semana.id);
 }
 
-function ligarEventosRecorrentesGrid() {
-  const grid = document.getElementById("recorrentes-grid");
+function ligarEventosRecorrentesLista(weekId) {
+  const secao = document.getElementById("recorrentes-section");
+  const lista = document.getElementById("recorrentes-lista");
+  const btnNova = document.getElementById("btn-nova-tarefa-diaria");
+  const form = document.getElementById("form-nova-tarefa-diaria");
 
-  grid.querySelectorAll('[data-acao="abrir-form-recorrente"]').forEach((btn) => {
-    btn.addEventListener("click", () => {
-      grid.querySelector(`[data-form-recorrente-bloco="${btn.dataset.bloco}"]`).classList.toggle("open");
+  // Liga o botão/form só uma vez (eles não são recriados a cada render,
+  // só a lista é) -- marca na própria seção pra não duplicar o listener.
+  if (!secao.dataset.eventosLigados) {
+    secao.dataset.eventosLigados = "1";
+
+    btnNova.addEventListener("click", () => form.classList.toggle("open"));
+    form.querySelector('[data-acao="fechar-form-recorrente-unico"]').addEventListener("click", () => {
+      form.classList.remove("open");
     });
-  });
 
-  grid.querySelectorAll('[data-acao="fechar-form-recorrente"]').forEach((btn) => {
-    btn.addEventListener("click", () => {
-      grid.querySelector(`[data-form-recorrente-bloco="${btn.dataset.bloco}"]`).classList.remove("open");
-    });
-  });
-
-  grid.querySelectorAll('[data-acao="salvar-recorrente"]').forEach((btn) => {
-    btn.addEventListener("click", async () => {
+    form.querySelector('[data-acao="salvar-recorrente-unico"]').addEventListener("click", async () => {
+      const btn = form.querySelector('[data-acao="salvar-recorrente-unico"]');
       if (btn.disabled) return;
-      const form = grid.querySelector(`[data-form-recorrente-bloco="${btn.dataset.bloco}"]`);
       const titulo = form.querySelector(".input-titulo-recorrente").value.trim();
+      const dia = form.querySelector(".input-dia-recorrente").value;
       if (!titulo) {
         mostrarToast("Dê um nome para a tarefa.");
         return;
@@ -1022,8 +1021,8 @@ function ligarEventosRecorrentesGrid() {
       try {
         const { error } = await window.supabaseClient.from("demandas").insert({
           client_id: estado.clientId,
-          week_id: btn.dataset.weekId,
-          bloco: btn.dataset.bloco,
+          week_id: form.dataset.weekId,
+          bloco: dia,
           titulo,
           categoria: "diaria",
           tipo_publicacao: "manual",
@@ -1033,18 +1032,24 @@ function ligarEventosRecorrentesGrid() {
           mostrarToast("Erro ao salvar: " + error.message);
           return;
         }
-        mostrarToast("Tarefa adicionada.");
+        form.querySelector(".input-titulo-recorrente").value = "";
+        form.classList.remove("open");
+        mostrarToast("Tarefa adicionada. Ela já entra sozinha no Checklist de hoje do painel quando chegar o dia.");
         await carregarSemanasEDemandas();
         renderWeekTabs();
       } finally {
         btn.disabled = false;
       }
     });
-  });
+  }
+
+  // A semana muda de aba pra aba (atual, próxima...) -- guarda sempre a
+  // semana certa no form, pra "Adicionar" criar na semana que está aberta.
+  form.dataset.weekId = weekId;
 
   // Marcar/desmarcar a caixinha muda o status direto (publicada = feita),
   // sem precisar abrir a tarefa inteira pra isso.
-  grid.querySelectorAll(".checklist-check").forEach((chk) => {
+  lista.querySelectorAll(".checklist-check").forEach((chk) => {
     chk.addEventListener("change", async () => {
       chk.disabled = true;
       await atualizarStatus(chk.dataset.id, chk.checked ? "publicada" : "pendente");
@@ -1055,7 +1060,7 @@ function ligarEventosRecorrentesGrid() {
   // é lá que dá pra ver/editar responsável, horário, parar a recorrência
   // etc. preventDefault pra esse clique não mexer sozinho na caixinha
   // (o título mora dentro do <label>, que senão alternaria ela também).
-  grid.querySelectorAll("[data-abrir-recorrente]").forEach((el) => {
+  lista.querySelectorAll("[data-abrir-recorrente]").forEach((el) => {
     el.addEventListener("click", (ev) => {
       ev.preventDefault();
       window.abrirModalTarefa(el.dataset.abrirRecorrente, { aoMudar: recarregarGrid });
@@ -1516,10 +1521,141 @@ async function excluirTarefa(id) {
 }
 
 // ------------------------------------------------------------------
+// Calendário editorial: visão do mês inteiro, só com mídia social, pra
+// enxergar de relance a linha editorial do cliente. Abre num pop-up por
+// cima da própria tela (não navega pra lugar nenhum).
+// ------------------------------------------------------------------
+
+// Data "de calendário" de uma tarefa: usa a Data de publicação/entrega
+// quando preenchida (é a informação mais específica); senão, cai pro dia
+// do pipeline (semana + bloco) convertido pra data real. Tarefas sem
+// nenhuma das duas (ex.: pacote de datas comemorativas sem data marcada)
+// não aparecem no calendário -- não tem em qual quadradinho colocar.
+function dataCalendarioDaTarefa(item) {
+  if (item.data_publicacao) return item.data_publicacao;
+  if (item.bloco && window.OFFSET_DIA_SEMANA[item.bloco] !== undefined && item.week_id) {
+    const semana = estado.weeks.find((w) => w.id === item.week_id);
+    if (semana) return addDias(semana.semana_inicio, window.OFFSET_DIA_SEMANA[item.bloco]);
+  }
+  return null;
+}
+
+function elOverlayCalendario() {
+  let overlay = document.getElementById("calendario-editorial-overlay");
+  if (!overlay) {
+    overlay = document.createElement("div");
+    overlay.id = "calendario-editorial-overlay";
+    overlay.className = "modal-overlay";
+    overlay.style.display = "none";
+    document.body.appendChild(overlay);
+    overlay.addEventListener("click", (ev) => {
+      if (ev.target === overlay) fecharCalendarioEditorial();
+    });
+    document.addEventListener("keydown", (ev) => {
+      if (ev.key === "Escape" && overlay.style.display !== "none") fecharCalendarioEditorial();
+    });
+  }
+  return overlay;
+}
+
+function fecharCalendarioEditorial() {
+  const overlay = document.getElementById("calendario-editorial-overlay");
+  if (overlay) overlay.style.display = "none";
+}
+
+function abrirCalendarioEditorial() {
+  if (!estado.calendarioMes) estado.calendarioMes = toISODate(new Date()).slice(0, 7);
+  const overlay = elOverlayCalendario();
+  overlay.innerHTML = `
+    <div class="modal-calendario-card">
+      <div class="modal-card-head">
+        <div>
+          <h3>Calendário editorial</h3>
+          <span style="font-size:12px; opacity:.85;">Só mídia social — visão geral do mês</span>
+        </div>
+        <button type="button" class="modal-close-btn" id="btn-fechar-calendario-editorial">✕</button>
+      </div>
+      <div class="modal-card-body">
+        <div class="calendario-nav">
+          <button type="button" class="btn btn-ghost" id="btn-calendario-anterior">‹</button>
+          <strong id="calendario-mes-label"></strong>
+          <button type="button" class="btn btn-ghost" id="btn-calendario-proximo">›</button>
+        </div>
+        <div class="calendario-grid" id="calendario-grid"></div>
+      </div>
+    </div>
+  `;
+  overlay.style.display = "flex";
+
+  document.getElementById("btn-fechar-calendario-editorial").addEventListener("click", fecharCalendarioEditorial);
+  document.getElementById("btn-calendario-anterior").addEventListener("click", () => {
+    estado.calendarioMes = somarMes(estado.calendarioMes, -1);
+    renderCalendarioEditorial();
+  });
+  document.getElementById("btn-calendario-proximo").addEventListener("click", () => {
+    estado.calendarioMes = somarMes(estado.calendarioMes, 1);
+    renderCalendarioEditorial();
+  });
+
+  renderCalendarioEditorial();
+}
+
+function renderCalendarioEditorial() {
+  document.getElementById("calendario-mes-label").textContent = formatarMesAno(estado.calendarioMes);
+
+  const [ano, mes] = estado.calendarioMes.split("-").map(Number);
+  const primeiroDiaSemana = new Date(ano, mes - 1, 1).getDay(); // 0 = domingo
+  const diasNoMes = new Date(ano, mes, 0).getDate();
+  const hojeISO = toISODate(new Date());
+  const nomesDow = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+
+  // Só mídia social, e só quem tem uma data certa pra cair num quadradinho.
+  const eventosSociais = estado.demandas
+    .filter((d) => categoriaDaTarefa(d) === "social")
+    .map((d) => ({ item: d, data: dataCalendarioDaTarefa(d) }))
+    .filter((x) => x.data);
+
+  let html = nomesDow.map((d) => `<div class="cal-ed-dow">${d}</div>`).join("");
+  for (let i = 0; i < primeiroDiaSemana; i++) html += `<div class="cal-ed-dia is-muted"></div>`;
+
+  for (let dia = 1; dia <= diasNoMes; dia++) {
+    const dataISO = `${ano}-${String(mes).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
+    const eventosDoDia = eventosSociais.filter((x) => x.data === dataISO);
+    const ehHoje = dataISO === hojeISO;
+    html += `
+      <div class="cal-ed-dia ${ehHoje ? "is-hoje" : ""}">
+        <span class="cal-ed-dia-numero">${dia}</span>
+        ${eventosDoDia
+          .map((x) => {
+            const aprovada = x.item.status === "validada" || x.item.status === "publicada";
+            return `<button type="button" class="cal-ed-evento ${aprovada ? "is-aprovada" : ""}" data-cal-tarefa-id="${x.item.id}" title="${escapeHtml(x.item.titulo)}">${escapeHtml(x.item.titulo)}</button>`;
+          })
+          .join("")}
+      </div>
+    `;
+  }
+
+  document.getElementById("calendario-grid").innerHTML = html;
+
+  document.querySelectorAll("[data-cal-tarefa-id]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      window.abrirModalTarefa(btn.dataset.calTarefaId, {
+        aoMudar: () => {
+          recarregarGrid();
+          renderCalendarioEditorial();
+        },
+      });
+    });
+  });
+}
+
+// ------------------------------------------------------------------
 
 async function init() {
   if (!montarTopbarAcoes("user-tag")) return;
   await carregarTudo();
+
+  document.getElementById("btn-abrir-calendario").addEventListener("click", abrirCalendarioEditorial);
 
   // Atualiza os selos de horário sozinho (sem precisar recarregar a
   // página), pra a contagem "faltam Xmin" andar e o alerta amarelo/
@@ -1527,7 +1663,7 @@ async function init() {
   // formulário aberto, pra não atrapalhar quem está digitando.
   setInterval(() => {
     if (document.querySelector("#block-grid .add-form.open")) return;
-    if (document.querySelector("#recorrentes-grid .add-form-recorrente.open")) return;
+    if (document.querySelector("#form-nova-tarefa-diaria.open")) return;
     renderBlocks();
   }, 30000);
 }
