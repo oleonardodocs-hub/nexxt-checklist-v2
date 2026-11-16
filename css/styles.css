@@ -889,6 +889,51 @@ a { color: inherit; }
   font-size: 11px;
   font-weight: 700;
 }
+.drive-cliente-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-sm);
+  background: var(--surface-1);
+  padding: 10px 12px;
+  margin-bottom: 12px;
+}
+.drive-cliente-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+.icone-pasta-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface-2));
+  color: var(--accent);
+  flex-shrink: 0;
+}
+.drive-cliente-vazio {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+.drive-cliente-link {
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 13px;
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.drive-cliente-link:hover { text-decoration: underline; }
+
 .acessos-lista .acesso-item:last-child { margin-bottom: 0; }
 .acesso-item {
   border: 1px solid var(--border-hairline);

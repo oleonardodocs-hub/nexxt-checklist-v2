@@ -32,6 +32,7 @@ let estado = {
   acessos: [],
   acessosAbertos: false,
   erroAcessos: null,
+  editandoDrive: false,
   weekTabSelecionada: null, // id da semana, "pacote" ou "historico"
   historicoMes: null, // "AAAA-MM" selecionado dentro do Histórico
 };
@@ -344,6 +345,7 @@ function renderAcessos() {
         <h3><span class="icone-chave-badge">${SVG_CHAVE}</span>Acessos e senhas</h3>
         <button class="btn btn-ghost" id="btn-fechar-acessos">Fechar</button>
       </div>
+      ${renderDriveClienteHTML()}
       <div class="acessos-lista">${linhas}</div>
       <button class="btn btn-ghost" id="btn-abrir-form-acesso" style="width:100%; margin-top:10px;">+ Adicionar acesso</button>
       <div class="add-form" id="form-acesso">
@@ -355,6 +357,95 @@ function renderAcessos() {
   `;
 
   ligarEventosAcessos();
+  ligarEventosDriveCliente();
+}
+
+// Campo exclusivo pro Drive do cliente (onde ficam os projetos/mídias já
+// prontos), separado dos logins/senhas de serviços abaixo -- é só um link,
+// não tem usuário/senha, então ganha um bloco de destaque próprio no topo
+// do painel em vez de entrar na lista genérica de acessos.
+function renderDriveClienteHTML() {
+  const link = estado.cliente ? estado.cliente.drive_link : null;
+
+  if (estado.editandoDrive) {
+    return `
+      <div class="drive-cliente-card">
+        <div class="drive-cliente-info">
+          <span class="icone-pasta-badge">${SVG_PASTA}</span>
+          <div class="field" style="flex:1; margin:0;">
+            <label>Link do Drive do cliente</label>
+            <input type="text" class="input-drive-link" placeholder="Cole aqui o link da pasta do Drive" value="${escapeHtml(link || "")}" />
+          </div>
+        </div>
+        <div class="demanda-controls" style="margin-top:8px;">
+          <button class="btn btn-primary" id="btn-salvar-drive">Salvar</button>
+          <button class="btn btn-ghost" id="btn-cancelar-drive">Cancelar</button>
+        </div>
+      </div>
+    `;
+  }
+
+  if (!link) {
+    return `
+      <div class="drive-cliente-card">
+        <div class="drive-cliente-info">
+          <span class="icone-pasta-badge">${SVG_PASTA}</span>
+          <span class="drive-cliente-vazio">Nenhum Drive cadastrado ainda</span>
+        </div>
+        <button class="btn btn-ghost" id="btn-abrir-edicao-drive">+ Adicionar Drive</button>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="drive-cliente-card">
+      <div class="drive-cliente-info">
+        <span class="icone-pasta-badge">${SVG_PASTA}</span>
+        <a class="drive-cliente-link" href="${escapeHtml(link)}" target="_blank" rel="noopener">Abrir Drive do cliente ↗</a>
+      </div>
+      <button class="btn btn-ghost" id="btn-abrir-edicao-drive">Editar</button>
+    </div>
+  `;
+}
+
+function ligarEventosDriveCliente() {
+  const btnAbrir = document.getElementById("btn-abrir-edicao-drive");
+  if (btnAbrir) {
+    btnAbrir.addEventListener("click", () => {
+      estado.editandoDrive = true;
+      renderAcessos();
+    });
+  }
+  const btnCancelar = document.getElementById("btn-cancelar-drive");
+  if (btnCancelar) {
+    btnCancelar.addEventListener("click", () => {
+      estado.editandoDrive = false;
+      renderAcessos();
+    });
+  }
+  const btnSalvar = document.getElementById("btn-salvar-drive");
+  if (btnSalvar) {
+    btnSalvar.addEventListener("click", salvarDriveCliente);
+  }
+}
+
+async function salvarDriveCliente() {
+  const input = document.querySelector(".input-drive-link");
+  let link = input.value.trim() || null;
+  // Facilita colar só o começo do link sem "https://" -- sem isso o link
+  // vira um caminho relativo da própria página e não abre o Drive.
+  if (link && !/^https?:\/\//i.test(link)) link = "https://" + link;
+
+  const { error } = await window.supabaseClient.from("clients").update({ drive_link: link }).eq("id", estado.clientId);
+  if (error) {
+    mostrarToast("Erro ao salvar o Drive: " + error.message);
+    return;
+  }
+
+  estado.cliente.drive_link = link;
+  estado.editandoDrive = false;
+  mostrarToast("Drive do cliente salvo.");
+  renderAcessos();
 }
 
 function camposAcessoHTML(acesso) {
@@ -1034,7 +1125,18 @@ function ligarEventosDoGrid() {
   });
 
   grid.querySelectorAll('[data-acao="salvar-tarefa"]').forEach((btn) => {
-    btn.addEventListener("click", () => salvarTarefa(btn.dataset.bloco, btn.dataset.weekId || null));
+    // Desliga o botão enquanto salva -- sem isso, um segundo clique (ex.:
+    // internet lenta, clique duplo sem querer) dispara duas inserções e
+    // cria uma tarefa (ou até uma recorrência inteira) duplicada.
+    btn.addEventListener("click", async () => {
+      if (btn.disabled) return;
+      btn.disabled = true;
+      try {
+        await salvarTarefa(btn.dataset.bloco, btn.dataset.weekId || null);
+      } finally {
+        btn.disabled = false;
+      }
+    });
   });
 
   grid.querySelectorAll(".input-responsavel").forEach(configurarSelectResponsavel);

@@ -85,6 +85,11 @@ const SVG_RELOGIO =
 const SVG_CHAVE =
   '<svg class="icone-chave" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="5.5"/><path d="M11 11.5 20.5 2M15 7l2.5 2.5M18.5 3.5 21 6"/></svg>';
 
+// Ícone de pasta (SVG embutido, herda a cor ao redor) usado no campo do
+// Drive do cliente, dentro do painel de Acessos e senhas.
+const SVG_PASTA =
+  '<svg class="icone-pasta" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg>';
+
 // Toda demanda é "social" (conteúdo de mídia social, linha editorial) ou
 // "diaria" (tarefa operacional, pode se repetir várias vezes no mesmo
 // dia). Tarefas antigas sem esse campo contam como "social", que é o uso

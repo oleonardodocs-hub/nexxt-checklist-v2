@@ -191,7 +191,12 @@
             <textarea class="input-descricao-modal" rows="3" placeholder="Opcional">${escaparHtml(tarefa.descricao || "")}</textarea>
           </div>
           ${
-            !isPacote
+            !isPacote && isNovo
+              ? `<p class="field-hint">Essa tarefa nasce como mídia social (é só por aqui, pelos cards de cima, que dá pra criar uma -- tarefas diárias/recorrentes continuam sendo criadas lá embaixo, na coluna do dia).</p>`
+              : ""
+          }
+          ${
+            !isPacote && !isNovo
               ? `<div class="field">
                   <label>Tipo de demanda</label>
                   <select class="input-categoria-modal">
@@ -356,14 +361,27 @@
       });
     }
 
-    document.getElementById("btn-salvar-modal-tarefa").addEventListener("click", async () => {
+    const btnSalvarTarefa = document.getElementById("btn-salvar-modal-tarefa");
+    btnSalvarTarefa.addEventListener("click", async () => {
+      // Desliga o botão enquanto salva -- evita duplicar a tarefa (ou a
+      // recorrência inteira) se a pessoa clicar duas vezes seguidas.
+      if (btnSalvarTarefa.disabled) return;
       const titulo = overlay.querySelector(".input-titulo-modal").value.trim();
       if (!titulo) {
         mostrarMsgModal("Dê um nome para a tarefa.", true);
         return;
       }
+      btnSalvarTarefa.disabled = true;
+      try {
+        await salvarModalTarefa();
+      } finally {
+        btnSalvarTarefa.disabled = false;
+      }
+    });
+
+    async function salvarModalTarefa() {
       const payload = {
-        titulo,
+        titulo: overlay.querySelector(".input-titulo-modal").value.trim(),
         descricao: overlay.querySelector(".input-descricao-modal").value.trim() || null,
         tipo_publicacao: overlay.querySelector(".input-tipo-modal").value,
         responsavel_id: overlay.querySelector(".input-responsavel-modal").value || null,
@@ -387,6 +405,9 @@
         payload.bloco = tarefa.bloco;
         payload.status = tarefa.status || "pendente";
         payload.recorrente_id = null;
+        // Sem seletor de "Tipo de demanda" nesse modo (ver renderizarModalTarefa)
+        // -- toda tarefa criada pelos cards da prévia nasce como mídia social.
+        payload.categoria = "social";
 
         const { error } = await window.supabaseClient.from("demandas").insert(payload);
         if (error) {
@@ -405,7 +426,7 @@
       }
       fecharModalTarefa();
       if (aoMudarAtual) aoMudarAtual();
-    });
+    }
   }
 
   function mostrarMsgModal(texto, erro) {
