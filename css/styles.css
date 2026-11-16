@@ -597,7 +597,7 @@ a { color: inherit; }
   gap: 14px;
   box-shadow: var(--shadow-card);
 }
-.previa-tema-roxo { background: linear-gradient(135deg, #6250d6, #46369e); }
+.previa-tema-roxo { background: linear-gradient(135deg, #1e40af, #1e3a8a); }
 .previa-tema-azul { background: linear-gradient(135deg, #2f6fe4, #1d4ed8); }
 .previa-semana-tag {
   align-self: flex-start;
@@ -808,7 +808,25 @@ a { color: inherit; }
   gap: 10px;
   width: 100%;
   padding: 11px 14px;
-  color: var(--text-primary);
+  color: #ffffff;
+  background: linear-gradient(135deg, #2f6fe4, #1d4ed8);
+  border: none;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+}
+.dia-diario-grupo.colapsado .dia-diario-cabecalho {
+  border-radius: var(--radius-md);
+}
+.dia-diario-chevron {
+  display: inline-flex;
+  flex-shrink: 0;
+  transition: transform .15s ease;
+  opacity: .85;
+}
+.dia-diario-grupo.colapsado .dia-diario-chevron {
+  transform: rotate(-90deg);
 }
 .dia-diario-nome {
   font-weight: 700;
@@ -819,15 +837,18 @@ a { color: inherit; }
 .dia-diario-contagem {
   margin-left: auto;
   font-size: 12px;
-  color: var(--text-muted);
+  color: #ffffff;
   flex-shrink: 0;
-  background: var(--surface-2);
+  background: rgba(255, 255, 255, 0.22);
   padding: 2px 9px;
   border-radius: 999px;
 }
 .dia-diario-corpo {
   border-top: 1px solid var(--border-hairline);
   overflow-x: auto;
+}
+.dia-diario-grupo.colapsado .dia-diario-corpo {
+  display: none;
 }
 .dia-diario-corpo .checklist-vazio {
   padding: 12px 14px;
@@ -1052,11 +1073,36 @@ a { color: inherit; }
   background: color-mix(in srgb, var(--accent) 16%, var(--surface-2));
   font-weight: 700;
 }
+.mini-cal-pontos {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
 .mini-cal-ponto {
   width: 4px;
   height: 4px;
   border-radius: 999px;
   background: var(--accent);
+}
+.mini-cal-ponto-comemorativa {
+  background: var(--cat-orange);
+}
+.pacote-calendario-legenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 10px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+.pacote-calendario-legenda span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.pacote-calendario-legenda .mini-cal-ponto {
+  width: 6px;
+  height: 6px;
 }
 @media (max-width: 720px) {
   .pacote-calendario-coluna {

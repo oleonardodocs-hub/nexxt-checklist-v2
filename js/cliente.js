@@ -28,6 +28,8 @@ const NOME_REDE_SOCIAL = {
   linkedin: "LinkedIn",
   youtube: "YouTube",
 };
+const SVG_CHEVRON_DIARIO =
+  '<svg class="dia-diario-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>';
 
 let estado = {
   clientId: null,
@@ -44,6 +46,7 @@ let estado = {
   weekTabSelecionada: null, // id da semana ou "historico"
   historicoMes: null, // "AAAA-MM" selecionado dentro do Histórico
   pacoteCalendarioMes: null, // "AAAA-MM" selecionado no mini-calendário de Datas comemorativas (lateral)
+  diasDiariosColapsados: new Set(), // quais grupos (segunda..sexta/fim-de-semana/sem-data) estão recolhidos
 };
 
 function segundaFeiraDe(date) {
@@ -914,6 +917,7 @@ function renderBlocks() {
   const grid = document.getElementById("block-grid");
 
   if (estado.weekTabSelecionada === "historico") {
+    grid.style.display = "grid";
     grid.innerHTML = renderHistorico();
     const card = grid.querySelector(".historico-card");
     card.querySelector('[data-acao="historico-anterior"]').addEventListener("click", () => {
@@ -928,28 +932,14 @@ function renderBlocks() {
     return;
   }
 
-  const semana = estado.weeks.find((w) => w.id === estado.weekTabSelecionada);
-  if (!semana) {
-    grid.innerHTML = '<div class="empty-state">Selecione uma semana.</div>';
-    return;
-  }
-
   // O grid de colunas por dia (segunda a sexta) saiu de vez daqui -- as
   // tarefas de mídia social da semana atual e da próxima agora vivem só
-  // nos cards de Prévia, lá em cima (ver renderPreviaSemana). As abas de
-  // semana continuam existindo só pra controlar o fluxo de validação
-  // (ver renderWeekBanner/validarSemana); por isso essa área, pra
-  // qualquer semana selecionada, mostra só um resumo informativo.
-  const itensDaSemana = estado.demandas.filter((d) => d.week_id === semana.id && categoriaDaTarefa(d) === "social");
-  const aprovadas = itensDaSemana.filter((d) => d.status === "validada" || d.status === "publicada").length;
-  const fimSemana = addDias(semana.semana_inicio, 4);
-
-  grid.innerHTML = `
-    <div class="block-card semana-resumo-card">
-      <h3>${formatarDataCurta(semana.semana_inicio)} a ${formatarDataCurta(fimSemana)} <span class="block-count">${aprovadas}/${itensDaSemana.length} aprovadas</span></h3>
-      <p class="field-hint">As tarefas de mídia social desta e da próxima semana aparecem e são aprovadas direto nos cards de Prévia, no topo da página.</p>
-    </div>
-  `;
+  // nos cards de Prévia, lá em cima (ver renderPreviaSemana), inclusive a
+  // aprovação. Essa área não mostra mais nenhum resumo por semana aqui
+  // embaixo (ficava cobrindo o card de Prévia) -- fica simplesmente
+  // escondida pra qualquer semana selecionada nas abas.
+  grid.style.display = "none";
+  grid.innerHTML = "";
 }
 
 // Tarefas diárias: UMA tabela só (estilo ticket/Monday), agrupada por DIA
@@ -995,44 +985,31 @@ function renderTarefasDiariasSecao() {
   });
   foraDaSemana.sort((a, b) => (a.dataEf < b.dataEf ? -1 : a.dataEf > b.dataEf ? 1 : 0));
 
-  const gruposHTML = DIAS_SEMANA.map((dia) => {
-    const linhasDoDia = porDia[dia];
+  // Cabeçalho de cada dia vira um botão: além da cor azul (mesma
+  // identidade dos cards de Prévia), clicar nele recolhe/expande as
+  // tarefas daquele dia -- o estado de recolhido/aberto fica em
+  // estado.diasDiariosColapsados, pra não resetar sozinho sempre que
+  // qualquer outra ação (aprovar, marcar feito etc.) manda redesenhar a
+  // tela inteira.
+  function grupoDiarioHTML(chaveDia, nomeDia, linhasDoDia) {
+    const colapsado = estado.diasDiariosColapsados.has(chaveDia);
     return `
-      <div class="dia-diario-grupo" data-dia="${dia}">
-        <div class="dia-diario-cabecalho">
-          <span class="dia-diario-nome">${NOME_DIA[dia]}</span>
+      <div class="dia-diario-grupo ${colapsado ? "colapsado" : ""}" data-dia="${chaveDia}">
+        <button type="button" class="dia-diario-cabecalho" data-toggle-dia-diario="${chaveDia}">
+          ${SVG_CHEVRON_DIARIO}
+          <span class="dia-diario-nome">${nomeDia}</span>
           <span class="dia-diario-contagem">${linhasDoDia.length}</span>
-        </div>
+        </button>
         <div class="dia-diario-corpo">
           ${linhasDoDia.length ? renderTabelaTarefasDiarias(linhasDoDia) : '<p class="checklist-vazio">Nenhuma tarefa pendente para esse dia.</p>'}
         </div>
       </div>
     `;
-  }).join("");
+  }
 
-  const foraHTML = foraDaSemana.length
-    ? `
-      <div class="dia-diario-grupo" data-dia="fim-de-semana">
-        <div class="dia-diario-cabecalho">
-          <span class="dia-diario-nome">FIM DE SEMANA</span>
-          <span class="dia-diario-contagem">${foraDaSemana.length}</span>
-        </div>
-        <div class="dia-diario-corpo">${renderTabelaTarefasDiarias(foraDaSemana)}</div>
-      </div>
-    `
-    : "";
-
-  const semDataHTML = semData.length
-    ? `
-      <div class="dia-diario-grupo" data-dia="sem-data">
-        <div class="dia-diario-cabecalho">
-          <span class="dia-diario-nome">SEM DATA DEFINIDA</span>
-          <span class="dia-diario-contagem">${semData.length}</span>
-        </div>
-        <div class="dia-diario-corpo">${renderTabelaTarefasDiarias(semData)}</div>
-      </div>
-    `
-    : "";
+  const gruposHTML = DIAS_SEMANA.map((dia) => grupoDiarioHTML(dia, NOME_DIA[dia], porDia[dia])).join("");
+  const foraHTML = foraDaSemana.length ? grupoDiarioHTML("fim-de-semana", "Fim de semana", foraDaSemana) : "";
+  const semDataHTML = semData.length ? grupoDiarioHTML("sem-data", "Sem data definida", semData) : "";
 
   el.innerHTML = gruposHTML + foraHTML + semDataHTML;
 
@@ -1085,6 +1062,17 @@ function renderTabelaTarefasDiarias(linhas) {
 function ligarEventosTabelaTarefasDiarias() {
   const el = document.getElementById("tarefas-diarias-dias");
   if (!el) return;
+
+  // Cabeçalho do dia: clicar recolhe/expande só aquele grupo, sem mexer
+  // nos outros -- o estado fica guardado em estado.diasDiariosColapsados.
+  el.querySelectorAll("[data-toggle-dia-diario]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const chave = btn.dataset.toggleDiaDiario;
+      if (estado.diasDiariosColapsados.has(chave)) estado.diasDiariosColapsados.delete(chave);
+      else estado.diasDiariosColapsados.add(chave);
+      renderTarefasDiariasSecao();
+    });
+  });
 
   // Marcar a caixinha já marca a tarefa como feita -- ela sai dessa lista
   // (as concluídas não aparecem mais aqui) e passa a viver só no Histórico,
@@ -1281,7 +1269,15 @@ function renderPacoteCalendarioEAgenda() {
   if (!estado.pacoteCalendarioMes) estado.pacoteCalendarioMes = toISODate(new Date()).slice(0, 7);
   const itensPacote = estado.demandas.filter((d) => d.bloco === "datas_comemorativas");
 
-  const calendarioHTML = renderMiniCalendarioPacote(estado.pacoteCalendarioMes, itensPacote);
+  // Posts/publicações do quadro principal (mídia social) -- qualquer
+  // demanda social, de qualquer semana, assim que tiver uma data efetiva
+  // definida já aparece no calendário (numa cor diferente da das datas
+  // comemorativas), pra dar a visão do mês inteiro de publicações.
+  const semanaPorId = {};
+  estado.weeks.forEach((w) => (semanaPorId[w.id] = w));
+  const itensPublicacoes = estado.demandas.filter((d) => d.bloco !== "datas_comemorativas" && categoriaDaTarefa(d) === "social");
+
+  const calendarioHTML = renderMiniCalendarioPacote(estado.pacoteCalendarioMes, itensPacote, itensPublicacoes, semanaPorId);
   const agendaHTML = renderBlockCard({
     bloco: "datas_comemorativas",
     titulo: "Datas comemorativas",
@@ -1297,18 +1293,26 @@ function renderPacoteCalendarioEAgenda() {
   `;
 }
 
-function renderMiniCalendarioPacote(mes, itensPacote) {
+function renderMiniCalendarioPacote(mes, itensPacote, itensPublicacoes, semanaPorId) {
   const [ano, mesNum] = mes.split("-").map(Number);
   const primeiroDiaSemana = new Date(ano, mesNum - 1, 1).getDay(); // 0 = domingo
   const diasNoMes = new Date(ano, mesNum, 0).getDate();
   const hojeISO = toISODate(new Date());
   const nomesDow = ["D", "S", "T", "Q", "Q", "S", "S"];
 
-  const porDia = {};
+  const porDiaComemorativa = {};
   itensPacote.forEach((item) => {
     const data = item.prazo_pacote || item.data_publicacao;
     if (!data) return;
-    (porDia[data] = porDia[data] || []).push(item);
+    (porDiaComemorativa[data] = porDiaComemorativa[data] || []).push(item);
+  });
+
+  const porDiaPublicacao = {};
+  (itensPublicacoes || []).forEach((item) => {
+    const semana = item.week_id ? (semanaPorId || {})[item.week_id] : null;
+    const data = dataEfetivaDaTarefa(item, semana);
+    if (!data) return;
+    (porDiaPublicacao[data] = porDiaPublicacao[data] || []).push(item);
   });
 
   let celulas = nomesDow.map((d, i) => `<div class="mini-cal-dow" title="${NOME_DIA_LONGO[i]}">${d}</div>`).join("");
@@ -1316,12 +1320,22 @@ function renderMiniCalendarioPacote(mes, itensPacote) {
 
   for (let dia = 1; dia <= diasNoMes; dia++) {
     const dataISO = `${ano}-${String(mesNum).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
-    const eventosDoDia = porDia[dataISO] || [];
+    const comemorativasDoDia = porDiaComemorativa[dataISO] || [];
+    const publicacoesDoDia = porDiaPublicacao[dataISO] || [];
+    const temEvento = comemorativasDoDia.length || publicacoesDoDia.length;
     const ehHoje = dataISO === hojeISO;
+    const tituloDia = [...publicacoesDoDia, ...comemorativasDoDia].map((e) => escapeHtml(e.titulo)).join(", ");
     celulas += `
-      <div class="mini-cal-dia ${ehHoje ? "is-hoje" : ""} ${eventosDoDia.length ? "tem-evento" : ""}" title="${eventosDoDia.map((e) => escapeHtml(e.titulo)).join(", ")}">
+      <div class="mini-cal-dia ${ehHoje ? "is-hoje" : ""} ${temEvento ? "tem-evento" : ""}" title="${tituloDia}">
         <span class="mini-cal-dia-numero">${dia}</span>
-        ${eventosDoDia.length ? '<span class="mini-cal-ponto"></span>' : ""}
+        ${
+          temEvento
+            ? `<span class="mini-cal-pontos">
+                ${publicacoesDoDia.length ? '<span class="mini-cal-ponto" title="Publicação"></span>' : ""}
+                ${comemorativasDoDia.length ? '<span class="mini-cal-ponto mini-cal-ponto-comemorativa" title="Data comemorativa"></span>' : ""}
+              </span>`
+            : ""
+        }
       </div>
     `;
   }
@@ -1334,6 +1348,10 @@ function renderMiniCalendarioPacote(mes, itensPacote) {
         <button type="button" class="btn btn-ghost" data-acao="pacote-mes-proximo" title="Próximo mês">›</button>
       </div>
       <div class="mini-calendario-grid">${celulas}</div>
+      <div class="pacote-calendario-legenda">
+        <span><span class="mini-cal-ponto"></span> Posts e publicações</span>
+        <span><span class="mini-cal-ponto mini-cal-ponto-comemorativa"></span> Datas comemorativas</span>
+      </div>
     </div>
   `;
 }
