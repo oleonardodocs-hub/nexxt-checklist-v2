@@ -29,40 +29,20 @@
       <div id="previa-proxima-semana"></div>
     </div>
 
-    <div class="week-tabs-linha">
-      <div id="week-tabs" class="week-tabs"></div>
-      <button type="button" class="btn btn-ghost btn-abrir-calendario" id="btn-abrir-calendario">🗓️ Calendário editorial</button>
-    </div>
+    <div id="week-tabs" class="week-tabs"></div>
     <div id="week-banner" class="week-banner" style="display:none;"></div>
 
     <div id="block-grid" class="block-grid">
       <div class="empty-state">Carregando...</div>
     </div>
 
-    <div class="recorrentes-section" id="recorrentes-section">
-      <div class="recorrentes-topo">
-        <h2 class="recorrentes-titulo">Tarefas diárias</h2>
+    <div class="tarefas-diarias-section" id="tarefas-diarias-section">
+      <div class="tarefas-diarias-topo">
+        <h2 class="tarefas-diarias-titulo">Tarefas diárias</h2>
         <button type="button" class="btn btn-primary" id="btn-nova-tarefa-diaria">+ Nova tarefa diária</button>
       </div>
-      <div class="add-form-recorrente" id="form-nova-tarefa-diaria">
-        <div class="grid-2">
-          <div class="field"><input type="text" class="input-titulo-recorrente" placeholder="Nome da tarefa" /></div>
-          <div class="field">
-            <select class="input-dia-recorrente">
-              <option value="segunda">Segunda-feira</option>
-              <option value="terca">Terça-feira</option>
-              <option value="quarta">Quarta-feira</option>
-              <option value="quinta">Quinta-feira</option>
-              <option value="sexta">Sexta-feira</option>
-            </select>
-          </div>
-        </div>
-        <div class="add-form-recorrente-acoes">
-          <button type="button" class="btn btn-primary" data-acao="salvar-recorrente-unico">Adicionar</button>
-          <button type="button" class="btn btn-ghost" data-acao="fechar-form-recorrente-unico">Cancelar</button>
-        </div>
-      </div>
-      <div id="recorrentes-lista" class="recorrentes-lista"></div>
+      <div class="add-form-recorrente" id="form-nova-tarefa-diaria"></div>
+      <div id="tarefas-diarias-meses" class="tarefas-diarias-meses"></div>
     </div>
   </div>
 

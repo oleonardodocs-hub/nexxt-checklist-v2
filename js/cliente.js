@@ -35,7 +35,7 @@ let estado = {
   editandoDrive: false,
   weekTabSelecionada: null, // id da semana, "pacote" ou "historico"
   historicoMes: null, // "AAAA-MM" selecionado dentro do Histórico
-  calendarioMes: null, // "AAAA-MM" selecionado dentro do Calendário editorial
+  mesesDiariosAbertos: {}, // quais grupos de mês da tabela de tarefas diárias estão abertos/fechados
 };
 
 function segundaFeiraDe(date) {
@@ -681,6 +681,8 @@ function renderWeekTabs() {
   renderBlocks();
   renderPreviaSemana("previa-semana-atual", 0, "Prévia desta semana", "roxo", "Esta semana");
   renderPreviaSemana("previa-proxima-semana", 7, "Prévia da próxima semana", "azul", "Próxima semana");
+  renderFormNovaTarefaDiaria();
+  renderTarefasDiariasSecao();
 }
 
 // Prévia de uma semana (essa ou a seguinte): um bloco à parte, acima do
@@ -882,23 +884,10 @@ function ordenarPorCategoria(itens) {
   return [...itens].sort((a, b) => peso(a) - peso(b));
 }
 
-// Cabeçalho colorido de cada coluna de dia na seção de tarefas diárias --
-// uma cor fixa por dia (não é a cor do cliente, é só pra diferenciar as
-// colunas de relance, tipo as colunas de um quadro Kanban).
-const DIA_COR_RECORRENTE = {
-  segunda: "#4f46e5",
-  terca: "#2563eb",
-  quarta: "#0d9488",
-  quinta: "#d97706",
-  sexta: "#16a34a",
-};
-
 function renderBlocks() {
   const grid = document.getElementById("block-grid");
-  const secaoRecorrentes = document.getElementById("recorrentes-section");
 
   if (estado.weekTabSelecionada === "historico") {
-    secaoRecorrentes.style.display = "none";
     grid.innerHTML = renderHistorico();
     const card = grid.querySelector(".historico-card");
     card.querySelector('[data-acao="historico-anterior"]').addEventListener("click", () => {
@@ -914,7 +903,6 @@ function renderBlocks() {
   }
 
   if (estado.weekTabSelecionada === "pacote") {
-    secaoRecorrentes.style.display = "none";
     grid.innerHTML = renderBlockCard({
       bloco: "datas_comemorativas",
       titulo: "Datas comemorativas",
@@ -927,14 +915,14 @@ function renderBlocks() {
 
   const semana = estado.weeks.find((w) => w.id === estado.weekTabSelecionada);
   if (!semana) {
-    secaoRecorrentes.style.display = "none";
     grid.innerHTML = '<div class="empty-state">Selecione uma semana.</div>';
     return;
   }
 
   // A grade de cima fica só com a demanda de mídia social de cada dia
-  // (o post em si); as tarefas diárias/recorrentes ganharam a seção
-  // própria logo abaixo, em formato de checklist.
+  // (o post em si); as tarefas diárias têm a tabela própria abaixo,
+  // agrupada por mês (ver renderTarefasDiariasSecao), independente de
+  // qual semana está selecionada aqui em cima.
   grid.innerHTML = DIAS_SEMANA.map((dia) =>
     renderBlockCard({
       bloco: dia,
@@ -946,125 +934,246 @@ function renderBlocks() {
   ).join("");
 
   ligarEventosDoGrid();
-
-  secaoRecorrentes.style.display = "";
-  renderRecorrentesLista(semana);
 }
 
-// Seção de tarefas diárias/recorrentes: UM checklist só (não mais 5
-// colunas separadas), agrupado por dia com um selinho colorido, e UMA
-// única forma de criar (botão no topo da seção, com um campo pra
-// escolher o dia). Pra ver/editar responsável, horário etc. basta clicar
-// no título e abrir a tarefa inteira no modal.
-function renderRecorrentesLista(semana) {
-  const lista = document.getElementById("recorrentes-lista");
-  if (!lista) return;
+// Tarefas diárias: UMA tabela só (estilo Monday), agrupada por mês do
+// calendário (não mais por dia da semana) -- cada linha guarda o
+// responsável, a data exata e uma observação opcional, além do status.
+// Continuam sendo demandas normais (categoria "diaria"), só que soltas
+// da semana/bloco: usam a "Data" (data_publicacao) como referência de
+// quando a tarefa cai, que é o mesmo campo que o Checklist de hoje do
+// painel (dashboard.js) já lê via dataEfetivaDaTarefa -- então a tarefa
+// aparece sozinha lá assim que a data chegar, sem nada extra pra fazer
+// aqui.
+function renderTarefasDiariasSecao() {
+  const el = document.getElementById("tarefas-diarias-meses");
+  if (!el) return;
 
-  lista.innerHTML = DIAS_SEMANA.map((dia) => {
-    const itens = estado.demandas.filter((d) => d.week_id === semana.id && d.bloco === dia && categoriaDaTarefa(d) === "diaria");
-    const feitas = itens.filter((i) => i.status === "publicada").length;
-    const cor = DIA_COR_RECORRENTE[dia];
+  const semanaPorId = {};
+  estado.weeks.forEach((w) => (semanaPorId[w.id] = w));
 
-    const linhas =
-      itens
-        .map((item) => {
-          const concluida = item.status === "publicada";
-          return `
-            <label class="checkbox-label checklist-linha ${concluida ? "is-concluida" : ""}">
-              <input type="checkbox" class="checklist-check" data-id="${item.id}" ${concluida ? "checked" : ""} />
-              <span class="checklist-titulo" data-abrir-recorrente="${item.id}">${escapeHtml(item.titulo)}</span>
-            </label>
-          `;
-        })
-        .join("") || '<p class="checklist-vazio">Nenhuma tarefa.</p>';
+  const itens = estado.demandas
+    .filter((d) => categoriaDaTarefa(d) === "diaria")
+    .map((item) => {
+      const semana = item.week_id ? semanaPorId[item.week_id] : null;
+      return { item, dataEf: dataEfetivaDaTarefa(item, semana) };
+    });
 
-    return `
-      <div class="recorrente-dia-grupo">
-        <div class="recorrente-dia-cabecalho">
-          <span class="recorrente-dia-tag" style="background:${cor}">${NOME_DIA[dia].replace("-feira", "")}</span>
-          <span class="recorrente-dia-contagem">${feitas}/${itens.length}</span>
+  const semData = itens.filter((x) => !x.dataEf);
+  const comData = itens.filter((x) => x.dataEf);
+
+  const porMes = {};
+  comData.forEach((x) => {
+    const mes = x.dataEf.slice(0, 7);
+    (porMes[mes] = porMes[mes] || []).push(x);
+  });
+  Object.keys(porMes).forEach((mes) => {
+    porMes[mes].sort((a, b) => (a.dataEf < b.dataEf ? -1 : a.dataEf > b.dataEf ? 1 : 0));
+  });
+
+  const mesAtual = toISODate(new Date()).slice(0, 7);
+  const mesesOrdenados = Object.keys(porMes);
+  if (!mesesOrdenados.includes(mesAtual)) mesesOrdenados.push(mesAtual);
+  mesesOrdenados.sort();
+
+  const gruposHTML = mesesOrdenados
+    .map((mes) => {
+      const linhasDoMes = porMes[mes] || [];
+      const aberto = estado.mesesDiariosAbertos[mes] !== undefined ? estado.mesesDiariosAbertos[mes] : mes === mesAtual;
+      const feitas = linhasDoMes.filter((x) => x.item.status === "publicada").length;
+      return `
+        <div class="mes-diario-grupo" data-mes="${mes}">
+          <button type="button" class="mes-diario-cabecalho" data-acao="toggle-mes-diario" data-mes="${mes}">
+            <span class="mes-diario-seta">${aberto ? "▾" : "▸"}</span>
+            <span class="mes-diario-nome">${formatarMesAno(mes).toUpperCase()}</span>
+            <span class="mes-diario-contagem">${feitas}/${linhasDoMes.length}</span>
+          </button>
+          <div class="mes-diario-corpo" ${aberto ? "" : 'style="display:none;"'}>
+            ${linhasDoMes.length ? renderTabelaTarefasDiarias(linhasDoMes) : '<p class="checklist-vazio">Nenhuma tarefa nesse mês ainda.</p>'}
+          </div>
         </div>
-        <div class="recorrente-dia-linhas">${linhas}</div>
-      </div>
-    `;
-  }).join("");
+      `;
+    })
+    .join("");
 
-  ligarEventosRecorrentesLista(semana.id);
+  const semDataHTML = semData.length
+    ? `
+      <div class="mes-diario-grupo" data-mes="sem-data">
+        <div class="mes-diario-cabecalho" style="cursor:default;">
+          <span class="mes-diario-nome">SEM DATA DEFINIDA</span>
+          <span class="mes-diario-contagem">${semData.filter((x) => x.item.status === "publicada").length}/${semData.length}</span>
+        </div>
+        <div class="mes-diario-corpo">${renderTabelaTarefasDiarias(semData)}</div>
+      </div>
+    `
+    : "";
+
+  el.innerHTML = semDataHTML + gruposHTML;
+
+  el.querySelectorAll('[data-acao="toggle-mes-diario"]').forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const mes = btn.dataset.mes;
+      const estavaAberto = estado.mesesDiariosAbertos[mes] !== undefined ? estado.mesesDiariosAbertos[mes] : mes === mesAtual;
+      estado.mesesDiariosAbertos[mes] = !estavaAberto;
+      renderTarefasDiariasSecao();
+    });
+  });
+
+  ligarEventosTabelaTarefasDiarias();
 }
 
-function ligarEventosRecorrentesLista(weekId) {
-  const secao = document.getElementById("recorrentes-section");
-  const lista = document.getElementById("recorrentes-lista");
-  const btnNova = document.getElementById("btn-nova-tarefa-diaria");
-  const form = document.getElementById("form-nova-tarefa-diaria");
+// Tabela de uma lista de linhas (de um mês, ou do grupo "sem data"):
+// checkbox, tarefa, responsável, status (reaproveita os mesmos 7 status e
+// cores de pill do pipeline principal), data e observação.
+function renderTabelaTarefasDiarias(linhas) {
+  const corpo = linhas
+    .map(({ item, dataEf }) => {
+      const concluida = item.status === "publicada";
+      const colaborador = item.responsavel_id ? estado.colaboradores.find((c) => c.id === item.responsavel_id) : null;
+      return `
+        <div class="tabela-diaria-linha ${concluida ? "is-concluida" : ""}" data-id="${item.id}">
+          <input type="checkbox" class="checklist-check" data-id="${item.id}" ${concluida ? "checked" : ""} />
+          <span class="tabela-diaria-titulo" data-abrir-tarefa-diaria="${item.id}" title="Clique para abrir e editar essa tarefa">${escapeHtml(item.titulo)}</span>
+          <span class="tabela-diaria-responsavel">${
+            colaborador
+              ? `<span class="demanda-chip demanda-chip-pessoa"><span class="demanda-chip-avatar">${escapeHtml(inicialAvatar(colaborador.nome))}</span>${escapeHtml(colaborador.nome)}</span>`
+              : '<span class="tabela-diaria-vazio">—</span>'
+          }</span>
+          <span class="pill pill-${item.status}">${NOME_STATUS[item.status]}</span>
+          <span class="tabela-diaria-data">${dataEf ? formatarDataCurta(dataEf) : "—"}</span>
+          <span class="tabela-diaria-obs" title="${escapeHtml(item.descricao || "")}">${item.descricao ? escapeHtml(item.descricao) : '<span class="tabela-diaria-vazio">—</span>'}</span>
+        </div>
+      `;
+    })
+    .join("");
 
-  // Liga o botão/form só uma vez (eles não são recriados a cada render,
-  // só a lista é) -- marca na própria seção pra não duplicar o listener.
-  if (!secao.dataset.eventosLigados) {
-    secao.dataset.eventosLigados = "1";
+  return `
+    <div class="tabela-diaria">
+      <div class="tabela-diaria-linha tabela-diaria-cabecalho">
+        <span></span>
+        <span>Tarefa</span>
+        <span>Responsável</span>
+        <span>Status</span>
+        <span>Data</span>
+        <span>Observação</span>
+      </div>
+      ${corpo}
+    </div>
+  `;
+}
 
-    btnNova.addEventListener("click", () => form.classList.toggle("open"));
-    form.querySelector('[data-acao="fechar-form-recorrente-unico"]').addEventListener("click", () => {
-      form.classList.remove("open");
-    });
-
-    form.querySelector('[data-acao="salvar-recorrente-unico"]').addEventListener("click", async () => {
-      const btn = form.querySelector('[data-acao="salvar-recorrente-unico"]');
-      if (btn.disabled) return;
-      const titulo = form.querySelector(".input-titulo-recorrente").value.trim();
-      const dia = form.querySelector(".input-dia-recorrente").value;
-      if (!titulo) {
-        mostrarToast("Dê um nome para a tarefa.");
-        return;
-      }
-      btn.disabled = true;
-      try {
-        const { error } = await window.supabaseClient.from("demandas").insert({
-          client_id: estado.clientId,
-          week_id: form.dataset.weekId,
-          bloco: dia,
-          titulo,
-          categoria: "diaria",
-          tipo_publicacao: "manual",
-          status: "pendente",
-        });
-        if (error) {
-          mostrarToast("Erro ao salvar: " + error.message);
-          return;
-        }
-        form.querySelector(".input-titulo-recorrente").value = "";
-        form.classList.remove("open");
-        mostrarToast("Tarefa adicionada. Ela já entra sozinha no Checklist de hoje do painel quando chegar o dia.");
-        await carregarSemanasEDemandas();
-        renderWeekTabs();
-      } finally {
-        btn.disabled = false;
-      }
-    });
-  }
-
-  // A semana muda de aba pra aba (atual, próxima...) -- guarda sempre a
-  // semana certa no form, pra "Adicionar" criar na semana que está aberta.
-  form.dataset.weekId = weekId;
+function ligarEventosTabelaTarefasDiarias() {
+  const el = document.getElementById("tarefas-diarias-meses");
+  if (!el) return;
 
   // Marcar/desmarcar a caixinha muda o status direto (publicada = feita),
   // sem precisar abrir a tarefa inteira pra isso.
-  lista.querySelectorAll(".checklist-check").forEach((chk) => {
+  el.querySelectorAll(".checklist-check").forEach((chk) => {
     chk.addEventListener("change", async () => {
       chk.disabled = true;
       await atualizarStatus(chk.dataset.id, chk.checked ? "publicada" : "pendente");
     });
   });
 
-  // Clicar no título (não na caixinha) abre a tarefa inteira no modal --
-  // é lá que dá pra ver/editar responsável, horário, parar a recorrência
-  // etc. preventDefault pra esse clique não mexer sozinho na caixinha
-  // (o título mora dentro do <label>, que senão alternaria ela também).
-  lista.querySelectorAll("[data-abrir-recorrente]").forEach((el) => {
-    el.addEventListener("click", (ev) => {
-      ev.preventDefault();
-      window.abrirModalTarefa(el.dataset.abrirRecorrente, { aoMudar: recarregarGrid });
+  // Clicar no título abre a tarefa inteira no modal -- é lá que dá pra
+  // ver/editar responsável, data, observação e status com calma.
+  el.querySelectorAll("[data-abrir-tarefa-diaria]").forEach((span) => {
+    span.addEventListener("click", () => {
+      window.abrirModalTarefa(span.dataset.abrirTarefaDiaria, { aoMudar: recarregarGrid });
     });
+  });
+}
+
+// Formulário único de criar tarefa diária: título, responsável, data e
+// observação -- monta só uma vez (o select de responsável depende da
+// lista de colaboradores já carregada) e fica escondido até clicar em
+// "+ Nova tarefa diária".
+function renderFormNovaTarefaDiaria() {
+  const form = document.getElementById("form-nova-tarefa-diaria");
+  const btnNova = document.getElementById("btn-nova-tarefa-diaria");
+  if (!form || !btnNova || form.dataset.montado) return;
+  form.dataset.montado = "1";
+
+  const hoje = toISODate(new Date());
+
+  form.innerHTML = `
+    <div class="grid-2">
+      <div class="field">
+        <label>Tarefa</label>
+        <input type="text" class="input-titulo-diaria" placeholder="Nome da tarefa" />
+      </div>
+      <div class="field">
+        <label>Responsável</label>
+        <select class="input-responsavel">
+          <option value="">Sem responsável definido</option>
+          ${estado.colaboradores
+            .map((c) => `<option value="${c.id}">${escapeHtml(c.nome)}${c.funcao ? ` (${escapeHtml(c.funcao)})` : ""}</option>`)
+            .join("")}
+          <option value="__novo__">+ Novo colaborador...</option>
+        </select>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="field">
+        <label>Dia que vai ser a tarefa</label>
+        <input type="date" class="input-data-diaria" value="${hoje}" />
+      </div>
+      <div class="field">
+        <label>Observação (opcional)</label>
+        <input type="text" class="input-obs-diaria" placeholder="Opcional" />
+      </div>
+    </div>
+    <div class="add-form-recorrente-acoes">
+      <button type="button" class="btn btn-primary" data-acao="salvar-tarefa-diaria">Adicionar</button>
+      <button type="button" class="btn btn-ghost" data-acao="fechar-form-tarefa-diaria">Cancelar</button>
+    </div>
+  `;
+
+  configurarSelectResponsavel(form.querySelector(".input-responsavel"));
+
+  btnNova.addEventListener("click", () => form.classList.toggle("open"));
+  form.querySelector('[data-acao="fechar-form-tarefa-diaria"]').addEventListener("click", () => {
+    form.classList.remove("open");
+  });
+
+  form.querySelector('[data-acao="salvar-tarefa-diaria"]').addEventListener("click", async () => {
+    const btn = form.querySelector('[data-acao="salvar-tarefa-diaria"]');
+    if (btn.disabled) return;
+    const titulo = form.querySelector(".input-titulo-diaria").value.trim();
+    if (!titulo) {
+      mostrarToast("Dê um nome para a tarefa.");
+      return;
+    }
+    const responsavelId = form.querySelector(".input-responsavel").value || null;
+    const data = form.querySelector(".input-data-diaria").value || null;
+    const observacao = form.querySelector(".input-obs-diaria").value.trim() || null;
+
+    btn.disabled = true;
+    try {
+      const { error } = await window.supabaseClient.from("demandas").insert({
+        client_id: estado.clientId,
+        titulo,
+        responsavel_id: responsavelId,
+        data_publicacao: data,
+        descricao: observacao,
+        categoria: "diaria",
+        tipo_publicacao: "manual",
+        status: "pendente",
+      });
+      if (error) {
+        mostrarToast("Erro ao salvar: " + error.message);
+        return;
+      }
+      form.querySelector(".input-titulo-diaria").value = "";
+      form.querySelector(".input-obs-diaria").value = "";
+      form.querySelector(".input-data-diaria").value = hoje;
+      form.classList.remove("open");
+      mostrarToast("Tarefa adicionada. Ela já entra sozinha no Checklist de hoje do painel quando chegar a data.");
+      await carregarSemanasEDemandas();
+      renderWeekTabs();
+    } finally {
+      btn.disabled = false;
+    }
   });
 }
 
@@ -1520,142 +1629,9 @@ async function excluirTarefa(id) {
   renderWeekTabs();
 }
 
-// ------------------------------------------------------------------
-// Calendário editorial: visão do mês inteiro, só com mídia social, pra
-// enxergar de relance a linha editorial do cliente. Abre num pop-up por
-// cima da própria tela (não navega pra lugar nenhum).
-// ------------------------------------------------------------------
-
-// Data "de calendário" de uma tarefa: usa a Data de publicação/entrega
-// quando preenchida (é a informação mais específica); senão, cai pro dia
-// do pipeline (semana + bloco) convertido pra data real. Tarefas sem
-// nenhuma das duas (ex.: pacote de datas comemorativas sem data marcada)
-// não aparecem no calendário -- não tem em qual quadradinho colocar.
-function dataCalendarioDaTarefa(item) {
-  if (item.data_publicacao) return item.data_publicacao;
-  if (item.bloco && window.OFFSET_DIA_SEMANA[item.bloco] !== undefined && item.week_id) {
-    const semana = estado.weeks.find((w) => w.id === item.week_id);
-    if (semana) return addDias(semana.semana_inicio, window.OFFSET_DIA_SEMANA[item.bloco]);
-  }
-  return null;
-}
-
-function elOverlayCalendario() {
-  let overlay = document.getElementById("calendario-editorial-overlay");
-  if (!overlay) {
-    overlay = document.createElement("div");
-    overlay.id = "calendario-editorial-overlay";
-    overlay.className = "modal-overlay";
-    overlay.style.display = "none";
-    document.body.appendChild(overlay);
-    overlay.addEventListener("click", (ev) => {
-      if (ev.target === overlay) fecharCalendarioEditorial();
-    });
-    document.addEventListener("keydown", (ev) => {
-      if (ev.key === "Escape" && overlay.style.display !== "none") fecharCalendarioEditorial();
-    });
-  }
-  return overlay;
-}
-
-function fecharCalendarioEditorial() {
-  const overlay = document.getElementById("calendario-editorial-overlay");
-  if (overlay) overlay.style.display = "none";
-}
-
-function abrirCalendarioEditorial() {
-  if (!estado.calendarioMes) estado.calendarioMes = toISODate(new Date()).slice(0, 7);
-  const overlay = elOverlayCalendario();
-  overlay.innerHTML = `
-    <div class="modal-calendario-card">
-      <div class="modal-card-head">
-        <div>
-          <h3>Calendário editorial</h3>
-          <span style="font-size:12px; opacity:.85;">Só mídia social — visão geral do mês</span>
-        </div>
-        <button type="button" class="modal-close-btn" id="btn-fechar-calendario-editorial">✕</button>
-      </div>
-      <div class="modal-card-body">
-        <div class="calendario-nav">
-          <button type="button" class="btn btn-ghost" id="btn-calendario-anterior">‹</button>
-          <strong id="calendario-mes-label"></strong>
-          <button type="button" class="btn btn-ghost" id="btn-calendario-proximo">›</button>
-        </div>
-        <div class="calendario-grid" id="calendario-grid"></div>
-      </div>
-    </div>
-  `;
-  overlay.style.display = "flex";
-
-  document.getElementById("btn-fechar-calendario-editorial").addEventListener("click", fecharCalendarioEditorial);
-  document.getElementById("btn-calendario-anterior").addEventListener("click", () => {
-    estado.calendarioMes = somarMes(estado.calendarioMes, -1);
-    renderCalendarioEditorial();
-  });
-  document.getElementById("btn-calendario-proximo").addEventListener("click", () => {
-    estado.calendarioMes = somarMes(estado.calendarioMes, 1);
-    renderCalendarioEditorial();
-  });
-
-  renderCalendarioEditorial();
-}
-
-function renderCalendarioEditorial() {
-  document.getElementById("calendario-mes-label").textContent = formatarMesAno(estado.calendarioMes);
-
-  const [ano, mes] = estado.calendarioMes.split("-").map(Number);
-  const primeiroDiaSemana = new Date(ano, mes - 1, 1).getDay(); // 0 = domingo
-  const diasNoMes = new Date(ano, mes, 0).getDate();
-  const hojeISO = toISODate(new Date());
-  const nomesDow = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
-
-  // Só mídia social, e só quem tem uma data certa pra cair num quadradinho.
-  const eventosSociais = estado.demandas
-    .filter((d) => categoriaDaTarefa(d) === "social")
-    .map((d) => ({ item: d, data: dataCalendarioDaTarefa(d) }))
-    .filter((x) => x.data);
-
-  let html = nomesDow.map((d) => `<div class="cal-ed-dow">${d}</div>`).join("");
-  for (let i = 0; i < primeiroDiaSemana; i++) html += `<div class="cal-ed-dia is-muted"></div>`;
-
-  for (let dia = 1; dia <= diasNoMes; dia++) {
-    const dataISO = `${ano}-${String(mes).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
-    const eventosDoDia = eventosSociais.filter((x) => x.data === dataISO);
-    const ehHoje = dataISO === hojeISO;
-    html += `
-      <div class="cal-ed-dia ${ehHoje ? "is-hoje" : ""}">
-        <span class="cal-ed-dia-numero">${dia}</span>
-        ${eventosDoDia
-          .map((x) => {
-            const aprovada = x.item.status === "validada" || x.item.status === "publicada";
-            return `<button type="button" class="cal-ed-evento ${aprovada ? "is-aprovada" : ""}" data-cal-tarefa-id="${x.item.id}" title="${escapeHtml(x.item.titulo)}">${escapeHtml(x.item.titulo)}</button>`;
-          })
-          .join("")}
-      </div>
-    `;
-  }
-
-  document.getElementById("calendario-grid").innerHTML = html;
-
-  document.querySelectorAll("[data-cal-tarefa-id]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      window.abrirModalTarefa(btn.dataset.calTarefaId, {
-        aoMudar: () => {
-          recarregarGrid();
-          renderCalendarioEditorial();
-        },
-      });
-    });
-  });
-}
-
-// ------------------------------------------------------------------
-
 async function init() {
   if (!montarTopbarAcoes("user-tag")) return;
   await carregarTudo();
-
-  document.getElementById("btn-abrir-calendario").addEventListener("click", abrirCalendarioEditorial);
 
   // Atualiza os selos de horário sozinho (sem precisar recarregar a
   // página), pra a contagem "faltam Xmin" andar e o alerta amarelo/

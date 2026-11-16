@@ -709,78 +709,130 @@ a { color: inherit; }
 }
 
 /* Tarefas diárias: seção à parte, abaixo do pipeline de mídia social --
-   UM checklist só (não mais 5 colunas separadas), agrupado por dia com um
-   selo colorido simples, e UMA única forma de criar (botão + formulário
-   com título e um campo pra escolher o dia). */
-.recorrentes-section {
+   UMA tabela só, estilo Monday, agrupada por mês do calendário (cada
+   grupo pode ser aberto/fechado), e UMA única forma de criar (botão +
+   formulário com título, responsável, data e observação). */
+.tarefas-diarias-section {
   margin-top: 28px;
 }
-.recorrentes-topo {
+.tarefas-diarias-topo {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
   margin-bottom: 10px;
 }
-.recorrentes-titulo {
+.tarefas-diarias-titulo {
   font-size: 15px;
   font-weight: 700;
   color: var(--text-primary);
   margin: 0;
 }
-.recorrentes-lista {
+.tarefas-diarias-meses {
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
-.recorrente-dia-grupo {
+.mes-diario-grupo {
   background: var(--surface-1);
   border: 1px solid var(--border-hairline);
   border-radius: var(--radius-md);
   overflow: hidden;
 }
-.recorrente-dia-cabecalho {
+.mes-diario-cabecalho {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 9px 14px;
+  width: 100%;
+  padding: 11px 14px;
+  background: none;
+  border: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  color: var(--text-primary);
 }
-.recorrente-dia-tag {
-  color: #ffffff;
+.mes-diario-seta {
+  color: var(--text-muted);
+  font-size: 11px;
+  width: 12px;
+  flex-shrink: 0;
+}
+.mes-diario-nome {
   font-weight: 700;
-  font-size: 11.5px;
-  padding: 3px 11px;
-  border-radius: 999px;
+  font-size: 12.5px;
+  letter-spacing: 0.03em;
 }
-.recorrente-dia-contagem {
+.mes-diario-contagem {
+  margin-left: auto;
   font-size: 12px;
   color: var(--text-muted);
-  margin-left: auto;
+  flex-shrink: 0;
 }
-.recorrente-dia-linhas {
-  padding: 2px 14px 8px;
+.mes-diario-corpo {
+  border-top: 1px solid var(--border-hairline);
+  overflow-x: auto;
+}
+.mes-diario-corpo .checklist-vazio {
+  padding: 12px 14px;
+}
+.tabela-diaria {
   display: flex;
   flex-direction: column;
+  min-width: 640px;
 }
-.checklist-linha {
-  padding: 8px 6px;
-  border-radius: var(--radius-sm);
+.tabela-diaria-linha {
+  display: grid;
+  grid-template-columns: 26px 1.6fr 1.3fr 1fr 86px 1.4fr;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px;
+  border-top: 1px solid var(--border-hairline);
 }
-.checklist-linha:hover {
+.tabela-diaria-linha:first-child {
+  border-top: none;
+}
+.tabela-diaria-linha.tabela-diaria-cabecalho {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
   background: var(--surface-2);
 }
-.checklist-titulo {
-  flex: 1;
-  font-size: 13.5px;
+.tabela-diaria-linha:not(.tabela-diaria-cabecalho):hover {
+  background: var(--surface-2);
 }
-.checklist-linha.is-concluida .checklist-titulo {
+.tabela-diaria-linha .checklist-check {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.tabela-diaria-titulo {
+  font-size: 13.5px;
+  cursor: pointer;
+}
+.tabela-diaria-linha.is-concluida .tabela-diaria-titulo {
   text-decoration: line-through;
+  color: var(--text-muted);
+}
+.tabela-diaria-data,
+.tabela-diaria-obs {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+.tabela-diaria-obs {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tabela-diaria-vazio {
   color: var(--text-muted);
 }
 .checklist-vazio {
   font-size: 12px;
   color: var(--text-muted);
-  padding: 6px 0;
   margin: 0;
 }
 .add-form-recorrente {
@@ -794,122 +846,6 @@ a { color: inherit; }
 .add-form-recorrente.open {
   display: block;
 }
-.add-form-recorrente .add-form-recorrente-acoes {
-  display: flex;
-  gap: 8px;
-}
-
-/* Linha das abas de semana + botão do calendário editorial */
-.week-tabs-linha {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 18px 0;
-  flex-wrap: wrap;
-}
-.week-tabs-linha .week-tabs {
-  margin: 0;
-  flex: 1;
-  min-width: 0;
-}
-.btn-abrir-calendario {
-  flex-shrink: 0;
-}
-
-/* Calendário editorial: modal com o mês inteiro, só com as tarefas de
-   mídia social, pra enxergar a linha editorial do cliente de relance. */
-.modal-calendario-card {
-  width: 100%;
-  max-width: 820px;
-  background: var(--surface-2);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-card);
-  margin-bottom: 40px;
-  overflow: hidden;
-}
-.calendario-nav {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  margin-bottom: 14px;
-}
-.calendario-nav strong {
-  font-size: 14px;
-  min-width: 160px;
-  text-align: center;
-}
-.calendario-grid {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 6px;
-}
-.cal-ed-dow {
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  text-align: center;
-  padding-bottom: 4px;
-}
-.cal-ed-dia {
-  min-height: 74px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border-hairline);
-  background: var(--surface-1);
-  padding: 6px;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-.cal-ed-dia.is-muted {
-  background: transparent;
-  border-color: transparent;
-}
-.cal-ed-dia.is-hoje {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent) inset;
-}
-.cal-ed-dia-numero {
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--text-muted);
-}
-.cal-ed-dia.is-hoje .cal-ed-dia-numero {
-  color: var(--accent);
-}
-.cal-ed-evento {
-  font-size: 10.5px;
-  font-weight: 600;
-  padding: 2px 6px;
-  border-radius: 6px;
-  background: var(--accent-soft);
-  color: var(--accent-dark);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  cursor: pointer;
-  border: none;
-  text-align: left;
-  width: 100%;
-  font: inherit;
-}
-.cal-ed-evento:hover {
-  background: var(--accent);
-  color: #ffffff;
-}
-.cal-ed-evento.is-aprovada {
-  background: color-mix(in srgb, var(--status-good) 18%, transparent);
-  color: var(--status-good);
-}
-.cal-ed-evento.is-aprovada:hover {
-  background: var(--status-good);
-  color: #ffffff;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .cal-ed-evento.is-aprovada { color: #4fd34f; }
-}
-:root[data-theme="dark"] .cal-ed-evento.is-aprovada { color: #4fd34f; }
 .add-form-recorrente-acoes {
   display: flex;
   gap: 8px;
