@@ -678,8 +678,8 @@ function renderWeekTabs() {
 
   renderWeekBanner();
   renderBlocks();
-  renderPreviaSemana("previa-semana-atual", 0, "Prévia desta semana");
-  renderPreviaSemana("previa-proxima-semana", 7, "Prévia da próxima semana");
+  renderPreviaSemana("previa-semana-atual", 0, "Prévia desta semana", "roxo");
+  renderPreviaSemana("previa-proxima-semana", 7, "Prévia da próxima semana", "azul");
 }
 
 // Prévia de uma semana (essa ou a seguinte): um bloco à parte, acima do
@@ -695,7 +695,7 @@ function renderWeekTabs() {
 // quando ainda nem foi criada --, pra dar uma visão rápida de "essa semana
 // já está pronta?". O prazo mostrado é sempre a quinta-feira daquela semana
 // (segunda-feira + 3 dias).
-function renderPreviaSemana(elId, offsetDias, titulo) {
+function renderPreviaSemana(elId, offsetDias, titulo, tema) {
   const el = document.getElementById(elId);
   if (!el) return;
 
@@ -708,6 +708,7 @@ function renderPreviaSemana(elId, offsetDias, titulo) {
   }
 
   const prazo = addDias(semana.semana_inicio, 3);
+  let totalAprovadas = 0;
 
   const cards = DIAS_SEMANA.map((dia) => {
     const dataDoDia = addDias(semana.semana_inicio, window.OFFSET_DIA_SEMANA[dia]);
@@ -739,33 +740,38 @@ function renderPreviaSemana(elId, offsetDias, titulo) {
       textoStatus = NOME_STATUS[principal.status] || principal.status;
       tituloTarefa = principal.titulo;
     }
+    if (aprovada) totalAprovadas++;
 
-    // Card com tarefa: clicar abre ela no modal. Card vazio: clicar já abre
-    // o modal em modo de criação, com o dia/semana certos pré-preenchidos
-    // -- cria (e pode já marcar como pronta) sem precisar ir lá embaixo
-    // procurar a coluna do dia.
+    // Linha com tarefa: clicar abre ela no modal. Linha vazia: clicar já
+    // abre o modal em modo de criação, com o dia/semana certos
+    // pré-preenchidos -- cria (e pode já marcar como pronta) sem precisar
+    // ir lá embaixo procurar a coluna do dia.
     return `
-      <button type="button" class="previa-card ${pronta ? "previa-ok" : "previa-pendente"} ${pronta && !aprovada ? "previa-aguardando-aprovacao" : ""}"
+      <button type="button" class="previa-linha ${pronta ? "previa-ok" : "previa-pendente"} ${pronta && !aprovada ? "previa-aguardando-aprovacao" : ""}"
         data-previa-dia="${dia}" ${principal ? `data-previa-tarefa-id="${principal.id}"` : ""}
-        title="${principal ? "Clique para abrir essa tarefa" : "Clique para criar a tarefa desse dia"}">
-        <span class="previa-card-dia">${NOME_DIA[dia].replace("-feira", "")} · ${formatarDataCurta(dataDoDia)}</span>
-        <span class="previa-card-titulo">${tituloTarefa ? escapeHtml(tituloTarefa) : "Sem tarefa de mídia social"}</span>
-        <span class="previa-card-status">${aprovada ? "✓ " : pronta ? "○ " : "● "}${escapeHtml(textoStatus)}</span>
+        title="${escapeHtml(textoStatus)}${principal ? "" : " — clique para criar a tarefa desse dia"}">
+        <span class="previa-linha-dia">${NOME_DIA[dia].replace("-feira", "").slice(0, 3).toUpperCase()} ${formatarDataCurta(dataDoDia)}</span>
+        <span class="previa-linha-titulo">${tituloTarefa ? escapeHtml(tituloTarefa) : "Sem tarefa ainda"}</span>
+        <span class="previa-linha-icone">${aprovada ? "✓" : pronta ? "○" : "●"}</span>
       </button>
     `;
   }).join("");
 
   el.style.display = "block";
   el.innerHTML = `
-    <div class="previa-proxima-semana">
-      <div class="previa-header">
-        <div class="previa-header-titulo">
-          <span class="previa-icone-badge">${SVG_RELOGIO}</span>
+    <div class="previa-semana-card previa-tema-${tema || "roxo"}">
+      <div class="previa-semana-topo">
+        <span class="previa-semana-icone">${SVG_RELOGIO}</span>
+        <div class="previa-semana-info">
           <strong>${escapeHtml(titulo)}</strong>
+          <span class="previa-semana-prazo">Prazo máximo: ${formatarDataLonga(prazo)}</span>
         </div>
-        <span class="previa-prazo">Prazo máximo: ${formatarDataLonga(prazo)}</span>
       </div>
-      <div class="previa-cards">${cards}</div>
+      <div class="previa-semana-stat">
+        <span class="previa-semana-stat-numero">${totalAprovadas}/${DIAS_SEMANA.length}</span>
+        <span class="previa-semana-stat-label">prontas e aprovadas</span>
+      </div>
+      <div class="previa-semana-linhas">${cards}</div>
     </div>
   `;
 
@@ -871,10 +877,23 @@ function ordenarPorCategoria(itens) {
   return [...itens].sort((a, b) => peso(a) - peso(b));
 }
 
+// Cabeçalho colorido de cada coluna de dia na seção de tarefas diárias --
+// uma cor fixa por dia (não é a cor do cliente, é só pra diferenciar as
+// colunas de relance, tipo as colunas de um quadro Kanban).
+const DIA_COR_RECORRENTE = {
+  segunda: "#4f46e5",
+  terca: "#2563eb",
+  quarta: "#0d9488",
+  quinta: "#d97706",
+  sexta: "#16a34a",
+};
+
 function renderBlocks() {
   const grid = document.getElementById("block-grid");
+  const secaoRecorrentes = document.getElementById("recorrentes-section");
 
   if (estado.weekTabSelecionada === "historico") {
+    secaoRecorrentes.style.display = "none";
     grid.innerHTML = renderHistorico();
     const card = grid.querySelector(".historico-card");
     card.querySelector('[data-acao="historico-anterior"]').addEventListener("click", () => {
@@ -890,6 +909,7 @@ function renderBlocks() {
   }
 
   if (estado.weekTabSelecionada === "pacote") {
+    secaoRecorrentes.style.display = "none";
     grid.innerHTML = renderBlockCard({
       bloco: "datas_comemorativas",
       titulo: "Datas comemorativas",
@@ -902,21 +922,145 @@ function renderBlocks() {
 
   const semana = estado.weeks.find((w) => w.id === estado.weekTabSelecionada);
   if (!semana) {
+    secaoRecorrentes.style.display = "none";
     grid.innerHTML = '<div class="empty-state">Selecione uma semana.</div>';
     return;
   }
 
+  // A grade de cima fica só com a demanda de mídia social de cada dia
+  // (o post em si); as tarefas diárias/recorrentes ganharam a seção
+  // própria logo abaixo, em formato de checklist.
   grid.innerHTML = DIAS_SEMANA.map((dia) =>
     renderBlockCard({
       bloco: dia,
       titulo: NOME_DIA[dia],
       weekId: semana.id,
       semana,
-      itens: ordenarPorCategoria(estado.demandas.filter((d) => d.week_id === semana.id && d.bloco === dia)),
+      itens: estado.demandas.filter((d) => d.week_id === semana.id && d.bloco === dia && categoriaDaTarefa(d) === "social"),
     })
   ).join("");
 
   ligarEventosDoGrid();
+
+  secaoRecorrentes.style.display = "";
+  renderRecorrentesGrid(semana);
+}
+
+// Seção de tarefas diárias/recorrentes: uma coluna por dia da semana, com
+// cabeçalho colorido e, dentro, um checklist bem simples -- só caixinha de
+// marcar + título. Pra ver/editar responsável, horário etc. basta clicar
+// no título e abrir a tarefa inteira no modal.
+function renderRecorrentesGrid(semana) {
+  const grid = document.getElementById("recorrentes-grid");
+  if (!grid) return;
+
+  grid.innerHTML = DIAS_SEMANA.map((dia) => {
+    const itens = estado.demandas.filter((d) => d.week_id === semana.id && d.bloco === dia && categoriaDaTarefa(d) === "diaria");
+    const feitas = itens.filter((i) => i.status === "publicada").length;
+    const cor = DIA_COR_RECORRENTE[dia];
+
+    const linhas =
+      itens
+        .map((item) => {
+          const concluida = item.status === "publicada";
+          return `
+            <label class="checkbox-label checklist-linha ${concluida ? "is-concluida" : ""}">
+              <input type="checkbox" class="checklist-check" data-id="${item.id}" ${concluida ? "checked" : ""} />
+              <span class="checklist-titulo" data-abrir-recorrente="${item.id}">${escapeHtml(item.titulo)}</span>
+            </label>
+          `;
+        })
+        .join("") || '<p class="checklist-vazio">Nenhuma tarefa.</p>';
+
+    return `
+      <div class="coluna-recorrente">
+        <div class="coluna-recorrente-cabecalho" style="background:${cor}">
+          <span>${NOME_DIA[dia].replace("-feira", "")}</span>
+          <span class="coluna-recorrente-contagem">${feitas}/${itens.length}</span>
+        </div>
+        <div class="coluna-recorrente-lista">${linhas}</div>
+        <button type="button" class="btn btn-ghost btn-add-recorrente" data-acao="abrir-form-recorrente" data-bloco="${dia}">+ Adicionar tarefa</button>
+        <div class="add-form-recorrente" data-form-recorrente-bloco="${dia}">
+          <div class="field"><input type="text" class="input-titulo-recorrente" placeholder="Nome da tarefa" /></div>
+          <div class="add-form-recorrente-acoes">
+            <button type="button" class="btn btn-primary" data-acao="salvar-recorrente" data-bloco="${dia}" data-week-id="${semana.id}">Adicionar</button>
+            <button type="button" class="btn btn-ghost" data-acao="fechar-form-recorrente" data-bloco="${dia}">Cancelar</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  ligarEventosRecorrentesGrid();
+}
+
+function ligarEventosRecorrentesGrid() {
+  const grid = document.getElementById("recorrentes-grid");
+
+  grid.querySelectorAll('[data-acao="abrir-form-recorrente"]').forEach((btn) => {
+    btn.addEventListener("click", () => {
+      grid.querySelector(`[data-form-recorrente-bloco="${btn.dataset.bloco}"]`).classList.toggle("open");
+    });
+  });
+
+  grid.querySelectorAll('[data-acao="fechar-form-recorrente"]').forEach((btn) => {
+    btn.addEventListener("click", () => {
+      grid.querySelector(`[data-form-recorrente-bloco="${btn.dataset.bloco}"]`).classList.remove("open");
+    });
+  });
+
+  grid.querySelectorAll('[data-acao="salvar-recorrente"]').forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      if (btn.disabled) return;
+      const form = grid.querySelector(`[data-form-recorrente-bloco="${btn.dataset.bloco}"]`);
+      const titulo = form.querySelector(".input-titulo-recorrente").value.trim();
+      if (!titulo) {
+        mostrarToast("Dê um nome para a tarefa.");
+        return;
+      }
+      btn.disabled = true;
+      try {
+        const { error } = await window.supabaseClient.from("demandas").insert({
+          client_id: estado.clientId,
+          week_id: btn.dataset.weekId,
+          bloco: btn.dataset.bloco,
+          titulo,
+          categoria: "diaria",
+          tipo_publicacao: "manual",
+          status: "pendente",
+        });
+        if (error) {
+          mostrarToast("Erro ao salvar: " + error.message);
+          return;
+        }
+        mostrarToast("Tarefa adicionada.");
+        await carregarSemanasEDemandas();
+        renderWeekTabs();
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  });
+
+  // Marcar/desmarcar a caixinha muda o status direto (publicada = feita),
+  // sem precisar abrir a tarefa inteira pra isso.
+  grid.querySelectorAll(".checklist-check").forEach((chk) => {
+    chk.addEventListener("change", async () => {
+      chk.disabled = true;
+      await atualizarStatus(chk.dataset.id, chk.checked ? "publicada" : "pendente");
+    });
+  });
+
+  // Clicar no título (não na caixinha) abre a tarefa inteira no modal --
+  // é lá que dá pra ver/editar responsável, horário, parar a recorrência
+  // etc. preventDefault pra esse clique não mexer sozinho na caixinha
+  // (o título mora dentro do <label>, que senão alternaria ela também).
+  grid.querySelectorAll("[data-abrir-recorrente]").forEach((el) => {
+    el.addEventListener("click", (ev) => {
+      ev.preventDefault();
+      window.abrirModalTarefa(el.dataset.abrirRecorrente, { aoMudar: recarregarGrid });
+    });
+  });
 }
 
 function renderBlockCard({ bloco, titulo, weekId, semana, itens }) {
@@ -1009,7 +1153,6 @@ function camposTarefaHTML(isPacote, item, bloco) {
   const tipo = item.tipo_publicacao || "agendada";
   const horaVal = item.hora_publicacao ? item.hora_publicacao.slice(0, 5) : "";
   const ehTarefaNova = !item.id;
-  const categoria = categoriaDaTarefa(item);
 
   return `
     ${
@@ -1028,18 +1171,6 @@ function camposTarefaHTML(isPacote, item, bloco) {
       <label>Descrição (o que é e como deve ser feito)</label>
       <textarea class="input-descricao" rows="2" placeholder="Opcional">${escapeHtml(item.descricao || "")}</textarea>
     </div>
-    ${
-      !isPacote
-        ? `<div class="field">
-            <label>Tipo de demanda</label>
-            <select class="input-categoria">
-              <option value="social" ${categoria === "social" ? "selected" : ""}>Mídia social</option>
-              <option value="diaria" ${categoria === "diaria" ? "selected" : ""}>Tarefa diária</option>
-            </select>
-            <p class="field-hint">Mídia social entra no progresso da semana. Tarefa diária entra só no progresso do dia.</p>
-          </div>`
-        : ""
-    }
     <div class="grid-2">
       <div class="field">
         <label>Tipo de publicação</label>
@@ -1396,6 +1527,7 @@ async function init() {
   // formulário aberto, pra não atrapalhar quem está digitando.
   setInterval(() => {
     if (document.querySelector("#block-grid .add-form.open")) return;
+    if (document.querySelector("#recorrentes-grid .add-form-recorrente.open")) return;
     renderBlocks();
   }, 30000);
 }
