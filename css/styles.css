@@ -694,90 +694,133 @@ a { color: inherit; }
 
 .semana-foco-dias {
   display: grid;
-  grid-template-columns: repeat(5, minmax(150px, 1fr));
+  grid-template-columns: repeat(5, minmax(170px, 1fr));
   gap: 10px;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   padding-bottom: 2px;
 }
+/* Cards dos dias no formato da referência (card escuro de vidro, brilho
+   azul vindo de baixo, pílula no topo, fileira de bolinhas, painel interno
+   e botões em pílula). Ficam escuros também no modo claro. */
 .dia-card {
+  position: relative;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  gap: 8px;
-  min-height: 128px;
-  padding: 10px 11px;
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--surface-2) 75%, transparent);
-  border: 1px solid var(--border-hairline);
-  transition: border-color .15s ease, background .15s ease;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 22px;
+  color: #f1f5f9;
+  background:
+    radial-gradient(130% 60% at 50% 112%, rgba(37, 99, 235, 0.55) 0%, rgba(29, 78, 216, 0.22) 40%, transparent 70%),
+    linear-gradient(180deg, #171a22 0%, #0c0e14 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 10px 28px rgba(0, 0, 0, 0.28);
+  overflow: hidden;
+  transition: transform .15s ease, box-shadow .15s ease;
 }
 .dia-card:hover {
-  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
-  background: color-mix(in srgb, var(--accent) 6%, var(--surface-2));
+  transform: translateY(-2px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.09), 0 14px 34px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(96, 165, 250, 0.25);
 }
 .dia-card-vazio {
-  background: transparent;
-  border-style: dashed;
+  background:
+    radial-gradient(130% 60% at 50% 112%, rgba(37, 99, 235, 0.25) 0%, transparent 65%),
+    linear-gradient(180deg, #171a22 0%, #0c0e14 100%);
 }
-.dia-card-abrir {
+.dia-card-corpo {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  align-items: center;
+  gap: 8px;
   width: 100%;
-  text-align: left;
   padding: 0;
   border: none;
   background: none;
-  color: var(--text-primary);
+  color: inherit;
   font: inherit;
+  text-align: center;
   cursor: pointer;
   min-width: 0;
 }
-.dia-card-abrir:focus-visible {
-  outline: 2px solid var(--accent);
+.dia-card-corpo:focus-visible {
+  outline: 2px solid #60a5fa;
   outline-offset: 3px;
-  border-radius: 6px;
+  border-radius: 14px;
 }
 .dia-card-topo {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 6px;
+  width: 100%;
+  min-width: 0;
 }
-.dia-card-dia {
-  font-size: 10.5px;
-  font-weight: 800;
-  letter-spacing: 0.03em;
-  color: var(--text-muted);
+.dia-card-responsavel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(241, 245, 249, 0.85);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dia-card-responsavel-ponto {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #60a5fa;
+  box-shadow: 0 0 8px rgba(96, 165, 250, 0.8);
+  flex-shrink: 0;
 }
 .dia-card-icone {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   border-radius: 999px;
+  flex-shrink: 0;
   font-size: 11px;
   font-weight: 800;
-  flex-shrink: 0;
-  border: 1px solid var(--border-hairline);
-  color: var(--text-muted);
+  color: rgba(241, 245, 249, 0.7);
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
-.dia-card-aprovado .dia-card-icone {
-  color: var(--status-good);
-  border-color: color-mix(in srgb, var(--status-good) 50%, transparent);
-  background: color-mix(in srgb, var(--status-good) 14%, transparent);
+.dia-card-aprovado .dia-card-icone,
+.dia-card-aprovado .dia-card-painel-icone {
+  color: #4ade80;
+  background: rgba(74, 222, 128, 0.14);
+  border-color: rgba(74, 222, 128, 0.35);
 }
-.dia-card-aguardando .dia-card-icone {
-  color: var(--status-warning);
-  border-color: color-mix(in srgb, var(--status-warning) 50%, transparent);
+.dia-card-aguardando .dia-card-icone,
+.dia-card-aguardando .dia-card-painel-icone {
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.12);
+  border-color: rgba(251, 191, 36, 0.35);
+}
+.dia-card-pilula {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #bfdbfe;
+  background: rgba(59, 130, 246, 0.18);
+  border: 1px solid rgba(96, 165, 250, 0.35);
+  padding: 4px 12px;
+  border-radius: 999px;
+  white-space: nowrap;
 }
 .dia-card-titulo {
-  font-size: 13px;
-  font-weight: 650;
-  line-height: 1.3;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  color: #ffffff;
+  min-height: 2.4em;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -785,74 +828,123 @@ a { color: inherit; }
   word-break: break-word;
 }
 .dia-card-vazio .dia-card-titulo {
-  color: var(--text-muted);
-  font-weight: 500;
-}
-.dia-card-dica {
-  font-size: 11px;
-  color: var(--text-muted);
+  color: rgba(241, 245, 249, 0.55);
 }
 .dia-card-redes {
   display: flex;
+  justify-content: center;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 6px;
+  min-height: 28px;
 }
-.rede-mini {
+.dia-card-redes-vazio {
+  align-self: center;
+  font-size: 11px;
+  color: rgba(241, 245, 249, 0.45);
+}
+.rede-bolinha {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 22px;
-  height: 18px;
-  padding: 0 5px;
-  border-radius: 6px;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
   font-size: 9.5px;
   font-weight: 800;
-  letter-spacing: 0.02em;
-  border: 1px solid currentColor;
+  color: #ffffff;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
 }
-.rede-mini-instagram { color: #c0247a; background: color-mix(in srgb, #c0247a 10%, transparent); }
-.rede-mini-facebook { color: #1559c4; background: color-mix(in srgb, #1559c4 10%, transparent); }
-.rede-mini-linkedin { color: #0a66a8; background: color-mix(in srgb, #0a66a8 10%, transparent); }
-.rede-mini-youtube { color: #b3261e; background: color-mix(in srgb, #b3261e 10%, transparent); }
-:root[data-theme="dark"] .rede-mini-instagram { color: #f178b6; }
-:root[data-theme="dark"] .rede-mini-facebook { color: #7aa7f0; }
-:root[data-theme="dark"] .rede-mini-linkedin { color: #6cbcf0; }
-:root[data-theme="dark"] .rede-mini-youtube { color: #f08b85; }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .rede-mini-instagram { color: #f178b6; }
-  :root:not([data-theme="light"]) .rede-mini-facebook { color: #7aa7f0; }
-  :root:not([data-theme="light"]) .rede-mini-linkedin { color: #6cbcf0; }
-  :root:not([data-theme="light"]) .rede-mini-youtube { color: #f08b85; }
+.rede-bolinha-instagram { background: linear-gradient(135deg, #f59e0b, #e1306c 55%, #833ab4); }
+.rede-bolinha-facebook { background: linear-gradient(135deg, #3b82f6, #1d4ed8); }
+.rede-bolinha-linkedin { background: linear-gradient(135deg, #38bdf8, #0a66c2); }
+.rede-bolinha-youtube { background: linear-gradient(135deg, #f87171, #dc2626); }
+.dia-card-painel {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  padding: 8px 9px;
+  border-radius: 14px;
+  background: rgba(10, 12, 18, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  text-align: left;
 }
-.dia-card-rodape {
+.dia-card-painel-rotulo {
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(241, 245, 249, 0.5);
+}
+.dia-card-painel-linha {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 6px;
+  gap: 8px;
   min-width: 0;
 }
-.dia-card-rodape .pill {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
-}
-.btn-aprovar-mini {
-  flex-shrink: 0;
+.dia-card-painel-icone {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 26px;
   height: 26px;
   border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--status-good) 55%, transparent);
-  background: color-mix(in srgb, var(--status-good) 14%, transparent);
-  color: var(--status-good);
-  font-size: 13px;
+  flex-shrink: 0;
+  font-size: 12px;
   font-weight: 800;
-  cursor: pointer;
-  transition: background .15s ease, color .15s ease;
+  color: rgba(241, 245, 249, 0.7);
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
-.btn-aprovar-mini:hover {
-  background: var(--status-good);
+.dia-card-painel-textos {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.dia-card-painel-status {
+  font-size: 12px;
+  font-weight: 700;
   color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dia-card-painel-data {
+  font-size: 10.5px;
+  color: rgba(241, 245, 249, 0.5);
+}
+.dia-card-acoes {
+  display: flex;
+  gap: 6px;
+  margin-top: auto;
+}
+.dia-card-btn {
+  flex: 1;
+  min-width: 0;
+  height: 34px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  color: #e2e8f0;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background .15s ease, box-shadow .15s ease;
+}
+.dia-card-btn:hover {
+  background: rgba(255, 255, 255, 0.13);
+}
+.dia-card-btn-principal {
+  color: #ffffff;
+  background: linear-gradient(180deg, #4f8ff7 0%, #2563eb 100%);
+  border-color: rgba(147, 197, 253, 0.55);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 0 18px rgba(59, 130, 246, 0.55);
+}
+.dia-card-btn-principal:hover {
+  background: linear-gradient(180deg, #60a5fa 0%, #2563eb 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 0 24px rgba(59, 130, 246, 0.75);
 }
 
 /* Mini-calendário clicável (abre a tarefa do dia). */

@@ -756,7 +756,7 @@ function renderWeekTabs() {
 const SIGLA_REDE = { instagram: "IG", facebook: "FB", linkedin: "IN", youtube: "YT" };
 function redesMiniHTML(item) {
   return listaRedesSociais(item)
-    .map((v) => `<span class="rede-mini rede-mini-${v}" title="${nomeDeRedeSocial(v)}">${SIGLA_REDE[v] || v.slice(0, 2).toUpperCase()}</span>`)
+    .map((v) => `<span class="rede-bolinha rede-bolinha-${v}" title="${nomeDeRedeSocial(v)}">${SIGLA_REDE[v] || v.slice(0, 2).toUpperCase()}</span>`)
     .join("");
 }
 
@@ -781,27 +781,42 @@ function renderSemanaEmFoco() {
 
   const cards = r.dias
     .map(({ dia, dataDoDia, principal, aprovada }) => {
-      const textoStatus = principal ? NOME_STATUS[principal.status] || principal.status : "";
+      const textoStatus = principal ? NOME_STATUS[principal.status] || principal.status : "Ainda não criada";
       const classe = !principal ? "dia-card-vazio" : aprovada ? "dia-card-aprovado" : "dia-card-aguardando";
+      const rotuloDia = `${NOME_DIA[dia].replace("-feira", "").slice(0, 3).toUpperCase()} ${formatarDataCurta(dataDoDia)}`;
+      const colaborador = principal && principal.responsavel_id ? estado.colaboradores.find((c) => c.id === principal.responsavel_id) : null;
+      const hora = principal && principal.hora_publicacao ? principal.hora_publicacao.slice(0, 5) : "";
+      const redes = principal ? redesMiniHTML(principal) : "";
+      const atributosAbrir = `data-previa-dia="${dia}" data-previa-data="${dataDoDia}" ${principal ? `data-previa-tarefa-id="${principal.id}"` : ""}`;
       return `
         <div class="dia-card ${classe}">
-          <button type="button" class="dia-card-abrir" data-previa-dia="${dia}" data-previa-data="${dataDoDia}" ${principal ? `data-previa-tarefa-id="${principal.id}"` : ""}
-            title="${principal ? escapeHtml(principal.titulo) : "Clique para criar a tarefa desse dia"}">
+          <button type="button" class="dia-card-corpo" ${atributosAbrir} title="${principal ? escapeHtml(principal.titulo) : "Clique para criar a tarefa desse dia"}">
             <span class="dia-card-topo">
-              <span class="dia-card-dia">${NOME_DIA[dia].replace("-feira", "").slice(0, 3).toUpperCase()} ${formatarDataCurta(dataDoDia)}</span>
+              <span class="dia-card-responsavel">${colaborador ? `<span class="dia-card-responsavel-ponto"></span>${escapeHtml(colaborador.nome)}` : "Sem responsável"}</span>
               <span class="dia-card-icone">${aprovada ? "✓" : principal ? "○" : "+"}</span>
             </span>
-            <span class="dia-card-titulo">${principal ? escapeHtml(principal.titulo) : "Sem tarefa ainda"}</span>
-            ${principal ? `<span class="dia-card-redes">${redesMiniHTML(principal)}</span>` : '<span class="dia-card-dica">Clique para criar</span>'}
+            <span class="dia-card-pilula">${rotuloDia}</span>
+            <span class="dia-card-titulo">${principal ? escapeHtml(principal.titulo) : "Sem tarefa"}</span>
+            <span class="dia-card-redes">${redes || '<span class="dia-card-redes-vazio">Nenhuma rede</span>'}</span>
+            <span class="dia-card-painel">
+              <span class="dia-card-painel-rotulo">Status</span>
+              <span class="dia-card-painel-linha">
+                <span class="dia-card-painel-icone">${aprovada ? "✓" : principal ? "○" : "+"}</span>
+                <span class="dia-card-painel-textos">
+                  <span class="dia-card-painel-status">${escapeHtml(textoStatus)}</span>
+                  <span class="dia-card-painel-data">${formatarDataCurta(dataDoDia)}${hora ? ` · ${hora}` : ""}</span>
+                </span>
+              </span>
+            </span>
           </button>
-          ${
-            principal
-              ? `<div class="dia-card-rodape">
-                  <span class="pill pill-${principal.status}">${escapeHtml(textoStatus)}</span>
-                  ${!aprovada ? `<button type="button" class="btn-aprovar-mini" data-acao="aprovar-tarefa-previa" data-id="${principal.id}" title="Aprovar" aria-label="Aprovar">✓</button>` : ""}
-                </div>`
-              : ""
-          }
+          <div class="dia-card-acoes">
+            ${
+              principal
+                ? `<button type="button" class="dia-card-btn" ${atributosAbrir}>Abrir</button>
+                   ${!aprovada ? `<button type="button" class="dia-card-btn dia-card-btn-principal" data-acao="aprovar-tarefa-previa" data-id="${principal.id}">Aprovar ✓</button>` : ""}`
+                : `<button type="button" class="dia-card-btn dia-card-btn-principal" ${atributosAbrir}>Criar +</button>`
+            }
+          </div>
         </div>
       `;
     })
