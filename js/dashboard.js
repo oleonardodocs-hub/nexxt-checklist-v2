@@ -331,17 +331,35 @@ function renderChecklistHoje(lista, diaHoje, colaboradoresPorId) {
     return;
   }
 
+  // Agenda do dia: ordem pelo horário da tarefa (misturando os clientes);
+  // sem horário vai pro final. Um separador marca cada hora ("08:00").
+  const horaDe = (item) => (item.hora_publicacao ? item.hora_publicacao.slice(0, 5) : null);
+  const ordenada = [...lista].sort((a, b) => {
+    const ha = horaDe(a.item) || "99:99";
+    const hb = horaDe(b.item) || "99:99";
+    if (ha !== hb) return ha < hb ? -1 : 1;
+    return (a.cliente.nome || "").localeCompare(b.cliente.nome || "", "pt-BR");
+  });
+  let grupoAnterior;
+
   el.innerHTML =
     '<div class="today-wrap">' +
-    lista
+    ordenada
       .map(({ cliente, item, semana }) => {
         const dataEfetiva = dataEfetivaDaTarefa(item, semana);
         const atrasada = tarefaAtrasada(item, dataEfetiva);
+        const hora = horaDe(item);
+        const grupo = hora ? hora.slice(0, 2) + ":00" : "Sem horário";
+        const separador = grupo !== grupoAnterior ? `<div class="checklist-separador-hora"><span>${grupo}</span></div>` : "";
+        grupoAnterior = grupo;
+        const corCliente = corClienteParaCSS(cliente.cor);
+        const nomeResponsavel = item.responsavel_id ? colaboradoresPorId[item.responsavel_id] : null;
         return `
-        <div class="demanda-item ${atrasada ? "is-atrasada" : ""}" style="--client-color:${corClienteParaCSS(cliente.cor)}">
+        ${separador}
+        <div class="demanda-item ${atrasada ? "is-atrasada" : ""}" style="--client-color:${corCliente}">
           <div class="demanda-title">
             <span class="pill pill-${item.status}">${NOME_STATUS[item.status]}</span>
-            <span class="client-tag"><span class="tab-status-dot" style="background:${corClienteParaCSS(cliente.cor)};"></span>${escapeHtml(cliente.nome)}</span>
+            <span class="client-tag client-tag-cor" style="--client-color:${corCliente}"><span class="tab-status-dot" style="background:${corCliente};"></span>${escapeHtml(cliente.nome)}</span>
             ${escapeHtml(item.titulo)}
             ${badgeHorarioHTML(item, dataEfetiva, atrasada)}
             ${atrasada ? '<span class="badge-atrasada">Atrasada</span>' : ""}
@@ -349,7 +367,11 @@ function renderChecklistHoje(lista, diaHoje, colaboradoresPorId) {
           ${item.descricao ? `<div class="demanda-meta" style="color:var(--text-secondary);">${escapeHtml(item.descricao)}</div>` : ""}
           <div class="demanda-controls">
             ${item.tipo_publicacao === "manual" ? '<span class="demanda-meta">Manual</span>' : ""}
-            ${item.responsavel_id && colaboradoresPorId[item.responsavel_id] ? `<span class="demanda-meta">${escapeHtml(colaboradoresPorId[item.responsavel_id])}</span>` : ""}
+            ${
+              nomeResponsavel
+                ? `<span class="responsavel-selo" title="Responsável"><span class="responsavel-selo-avatar">${escapeHtml(inicialAvatar(nomeResponsavel))}</span>${escapeHtml(nomeResponsavel)}</span>`
+                : '<span class="responsavel-selo responsavel-selo-vazio">Sem responsável</span>'
+            }
             <button class="btn btn-primary" data-marcar-feito="${item.id}" style="margin-left:auto;">Marcar como feito</button>
             <button type="button" class="btn btn-ghost" data-abrir-tarefa="${item.id}">Abrir</button>
           </div>

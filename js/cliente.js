@@ -35,7 +35,9 @@ let estado = {
   acessosAbertos: false,
   erroAcessos: null,
   editandoDrive: false,
-  weekTabSelecionada: null, // id da semana ou "historico"
+  weekTabSelecionada: null, // null (modo semana) ou "historico"
+  semanaVisivelInicio: null, // segunda-feira escolhida nas abas; null = semana em andamento (automático)
+  calendarioDiaAberto: null, // dia do mini-calendário com a listinha de tarefas aberta
   historicoMes: null, // "AAAA-MM" selecionado dentro do Histórico
   pacoteCalendarioMes: null, // "AAAA-MM" selecionado no mini-calendário de Datas comemorativas (lateral)
   diasDiariosColapsados: new Set(), // quais grupos (segunda..sexta/fim-de-semana/sem-data) estão recolhidos
@@ -182,15 +184,6 @@ async function carregarSemanasEDemandas() {
   await garantirProximasSemanas();
   await garantirRecorrentesNasSemanas(estado.weeks.filter((w) => !semanaPassada(w)).map((w) => w.id));
 
-  // se nada selecionado ainda, seleciona a semana validada mais recente, senão a primeira disponível
-  if (!estado.weekTabSelecionada) {
-    const inicioAtual = toISODate(segundaFeiraDe(new Date()));
-    const ativa =
-      estado.weeks.filter((w) => w.status === "validada" && w.semana_inicio <= inicioAtual).sort((a, b) => (a.semana_inicio < b.semana_inicio ? 1 : -1))[0] ||
-      estado.weeks.filter((w) => w.status === "aguardando_validacao")[0] ||
-      estado.weeks[0];
-    estado.weekTabSelecionada = ativa ? ativa.id : "historico";
-  }
 }
 
 // garante que sempre exista 1 semana "aguardando_validacao" e 1 "disponivel" à frente
@@ -630,173 +623,207 @@ async function excluirAcesso(id) {
 // Abas de semana (+ datas comemorativas)
 // ------------------------------------------------------------------
 
-const DOT_POR_STATUS = {
-  disponivel: "var(--accent-track)",
-  aguardando_validacao: "var(--status-warning)",
-  validada: "var(--status-good)",
-  concluida: "var(--text-muted)",
-};
+// Status que contam como "pronta e aprovada": Validada e tudo o que vem
+// depois dela no fluxo (agendada, manual pendente, publicada).
+const STATUS_APROVADOS = ["validada", "agendada", "manual_pendente", "publicada"];
+function statusAprovado(status) {
+  return STATUS_APROVADOS.includes(status);
+}
 
+// Resumo de UMA semana (pela segunda-feira, AAAA-MM-DD): a tarefa principal
+// de mídia social de cada dia (seg a sex), quantas já estão aprovadas e se
+// ainda tem alguma criada e não aprovada.
+function resumoDaSemana(inicio) {
+  const semana = estado.weeks.find((w) => w.semana_inicio === inicio) || null;
+  let totalAprovadas = 0;
+  let temAberta = false;
+  const dias = DIAS_SEMANA.map((dia) => {
+    const dataDoDia = addDias(inicio, window.OFFSET_DIA_SEMANA[dia]);
+    // Conta como "do dia" quem está naquela semana + bloco OU quem tem
+    // exatamente essa data de publicação (mesmo cadastrada em outra semana).
+    const itensDoDia = estado.demandas.filter(
+      (d) => (semana && d.week_id === semana.id && d.bloco === dia) || d.data_publicacao === dataDoDia
+    );
+    const principal = ordenarPorCategoria(itensDoDia).find((i) => categoriaDaTarefa(i) === "social" && i.bloco !== "datas_comemorativas") || null;
+    const aprovada = !!principal && statusAprovado(principal.status);
+    if (aprovada) totalAprovadas++;
+    if (principal && !aprovada) temAberta = true;
+    return { dia, dataDoDia, principal, aprovada };
+  });
+  return { inicio, semana, dias, totalAprovadas, temAberta, finalizada: totalAprovadas === DIAS_SEMANA.length };
+}
+
+// Semana "em andamento" = a que fica fixa na tela:
+// 1) se alguma semana que já passou ainda tem tarefa criada e não
+//    validada, ela continua sendo a semana em andamento (a mais antiga);
+// 2) senão, a partir da semana atual, a primeira que ainda não tem os 5
+//    dias aprovados. Quando todos ficam validados, pula sozinha pra seguinte.
+function inicioSemanaEmAndamento() {
+  const segundaAtual = toISODate(segundaFeiraDe(new Date()));
+  const passadas = [...new Set(estado.weeks.map((w) => w.semana_inicio))].filter((i) => i < segundaAtual).sort();
+  for (const inicio of passadas) {
+    if (resumoDaSemana(inicio).temAberta) return inicio;
+  }
+  let inicio = segundaAtual;
+  for (let i = 0; i < 12; i++) {
+    if (!resumoDaSemana(inicio).finalizada) return inicio;
+    inicio = addDias(inicio, 7);
+  }
+  return segundaAtual;
+}
+
+// Semana mostrada agora: a escolhida nas abas, ou (sem escolha) a em andamento.
+function inicioSemanaEmFoco() {
+  return estado.semanaVisivelInicio || inicioSemanaEmAndamento();
+}
+
+// Segundas-feiras das semanas (seg a sex) que caem dentro do mês "AAAA-MM".
+function semanasDoMes(mes) {
+  const [ano, mesNum] = mes.split("-").map(Number);
+  const primeiro = `${mes}-01`;
+  const ultimo = toISODate(new Date(ano, mesNum, 0));
+  const inicios = [];
+  let seg = toISODate(segundaFeiraDe(new Date(ano, mesNum - 1, 1)));
+  while (seg <= ultimo) {
+    if (addDias(seg, 4) >= primeiro) inicios.push(seg);
+    seg = addDias(seg, 7);
+  }
+  return inicios;
+}
+
+// Abas no topo: todas as semanas do mês selecionado no calendário (as setas
+// do calendário trocam o mês), mais o Histórico. A semana em andamento
+// sempre aparece, mesmo se for de outro mês.
 function renderWeekTabs() {
   const el = document.getElementById("week-tabs");
-  // A fileira principal só mostra a semana atual e as futuras -- as que já
-  // passaram saem daqui sozinhas e ficam acessíveis pelo Histórico, por mês.
-  const semanas = [...estado.weeks]
-    .filter((w) => !semanaPassada(w))
-    .sort((a, b) => (a.semana_inicio < b.semana_inicio ? -1 : 1));
+  if (!estado.pacoteCalendarioMes) estado.pacoteCalendarioMes = toISODate(new Date()).slice(0, 7);
 
-  const tabsSemana = semanas
-    .map((w) => {
-      const ativo = w.id === estado.weekTabSelecionada;
-      const fimSemana = addDias(w.semana_inicio, 4);
+  const emAndamento = inicioSemanaEmAndamento();
+  const emFoco = inicioSemanaEmFoco();
+  const inicios = semanasDoMes(estado.pacoteCalendarioMes);
+  if (!inicios.includes(emAndamento)) inicios.unshift(emAndamento);
+  const modoHistorico = estado.weekTabSelecionada === "historico";
+
+  const tabsSemana = inicios
+    .map((inicio) => {
+      const r = resumoDaSemana(inicio);
+      const ativo = !modoHistorico && inicio === emFoco;
+      const corDot = r.finalizada ? "var(--status-good)" : inicio === emAndamento ? "var(--status-warning)" : "var(--accent-track)";
       return `
-        <button class="week-tab ${ativo ? "active" : ""}" data-week-id="${w.id}">
-          <span class="tab-status-dot" style="background:${DOT_POR_STATUS[w.status]};"></span>
-          ${formatarDataCurta(w.semana_inicio)} a ${formatarDataCurta(fimSemana)}
+        <button class="week-tab ${ativo ? "active" : ""} ${inicio === emAndamento ? "is-em-andamento" : ""}" data-semana-inicio="${inicio}"
+          title="${inicio === emAndamento ? "Semana em andamento" : r.finalizada ? "Semana finalizada" : ""}">
+          <span class="tab-status-dot" style="background:${corDot};"></span>
+          ${formatarDataCurta(inicio)} a ${formatarDataCurta(addDias(inicio, 4))}
+          <span class="week-tab-progresso">${r.finalizada ? "✓" : `${r.totalAprovadas}/${DIAS_SEMANA.length}`}</span>
         </button>
       `;
     })
     .join("");
 
   const tabHistorico = `
-    <button class="week-tab ${estado.weekTabSelecionada === "historico" ? "active" : ""}" data-week-id="historico">
+    <button class="week-tab ${modoHistorico ? "active" : ""}" data-week-id="historico">
       Histórico
     </button>
   `;
 
-  el.innerHTML = tabsSemana + tabHistorico;
+  el.innerHTML = `<span class="week-tabs-mes">${NOME_MES[Number(estado.pacoteCalendarioMes.slice(5, 7)) - 1]}</span>` + tabsSemana + tabHistorico;
 
-  el.querySelectorAll("[data-week-id]").forEach((btn) => {
+  el.querySelectorAll("[data-semana-inicio]").forEach((btn) => {
     btn.addEventListener("click", () => {
-      estado.weekTabSelecionada = btn.dataset.weekId;
+      const inicio = btn.dataset.semanaInicio;
+      estado.weekTabSelecionada = null;
+      // Clicar na semana em andamento volta pro modo automático.
+      estado.semanaVisivelInicio = inicio === inicioSemanaEmAndamento() ? null : inicio;
       renderWeekTabs();
-      renderWeekBanner();
-      renderBlocks();
     });
+  });
+  el.querySelector('[data-week-id="historico"]').addEventListener("click", () => {
+    estado.weekTabSelecionada = "historico";
+    renderWeekTabs();
   });
 
   renderWeekBanner();
   renderBlocks();
-  renderPreviaSemana("previa-semana-atual", 0, "Prévia desta semana", "roxo", "Esta semana");
-  renderPreviaSemana("previa-proxima-semana", 7, "Prévia da próxima semana", "azul", "Próxima semana");
+  renderSemanaEmFoco();
   renderFormNovaTarefaDiaria();
   renderTarefasDiariasSecao();
-  // Datas comemorativas: coluna lateral fixa, visível em qualquer aba/semana
-  // selecionada aqui em cima -- por isso fica fora do if/else de renderBlocks.
+  // Datas comemorativas: coluna lateral fixa, visível em qualquer aba/semana.
   renderSidebarDatasComemorativas();
 }
 
-// Prévia de uma semana (essa ou a seguinte): um bloco à parte, acima do
-// pipeline, com um cartãozinho por dia (segunda a sexta) da semana EM
-// RELAÇÃO AO CALENDÁRIO (segunda-feira de hoje + `offsetDias`) -- de
-// propósito não usa o status "aguardando_validacao"/"validada" pra achar a
-// semana, porque esses status podem ficar numa semana mais à frente (ex.:
-// se uma semana "disponível" no meio do caminho nunca foi validada à mão);
-// o que o Léo quer ver aqui é sempre a semana certa pelo calendário, não a
-// próxima a ser validada.
-// Fica verde quando a tarefa principal de mídia social daquele dia já está
-// aprovada (validada/publicada) e vermelho enquanto não estiver -- inclusive
-// quando ainda nem foi criada --, pra dar uma visão rápida de "essa semana
-// já está pronta?". O prazo mostrado é sempre a quinta-feira daquela semana
-// (segunda-feira + 3 dias).
-function renderPreviaSemana(elId, offsetDias, titulo, tema, tagTexto) {
-  const el = document.getElementById(elId);
-  if (!el) return;
+// Siglas das redes (no lugar das etiquetas com o nome inteiro, que quebravam
+// linha nos cards compactos). O nome completo aparece ao passar o mouse.
+const SIGLA_REDE = { instagram: "IG", facebook: "FB", linkedin: "IN", youtube: "YT" };
+function redesMiniHTML(item) {
+  return listaRedesSociais(item)
+    .map((v) => `<span class="rede-mini rede-mini-${v}" title="${nomeDeRedeSocial(v)}">${SIGLA_REDE[v] || v.slice(0, 2).toUpperCase()}</span>`)
+    .join("");
+}
 
-  const inicioDaSemana = addDias(toISODate(segundaFeiraDe(new Date())), offsetDias);
-  const semana = estado.weeks.find((w) => w.semana_inicio === inicioDaSemana);
-  if (!semana) {
+// A semana em foco: um bloco só, com os 5 dias (seg a sex) lado a lado.
+function renderSemanaEmFoco() {
+  const el = document.getElementById("previa-semana");
+  if (!el) return;
+  if (estado.weekTabSelecionada === "historico") {
     el.style.display = "none";
     el.innerHTML = "";
     return;
   }
 
-  const prazo = addDias(semana.semana_inicio, 3);
-  let totalAprovadas = 0;
+  const inicio = inicioSemanaEmFoco();
+  const emAndamento = inicioSemanaEmAndamento();
+  const r = resumoDaSemana(inicio);
+  const prazo = addDias(inicio, 3);
+  const pct = Math.round((r.totalAprovadas / DIAS_SEMANA.length) * 100);
 
-  const cards = DIAS_SEMANA.map((dia) => {
-    const dataDoDia = addDias(semana.semana_inicio, window.OFFSET_DIA_SEMANA[dia]);
+  let tag = "Em andamento";
+  if (inicio !== emAndamento) tag = r.finalizada ? "Finalizada" : inicio > emAndamento ? "Próxima" : "Anterior";
 
-    // Conta como "do dia" tanto quem está fisicamente naquela coluninha
-    // (semana + bloco) quanto quem foi preenchido com essa data exata no
-    // campo "Data de publicação/entrega" -- mesmo que, por engano, tenha
-    // sido criada em outra semana/coluna do pipeline. Sem esse segundo
-    // critério, uma tarefa cadastrada na coluna errada mas com a data
-    // certa nunca apareceria aqui em cima.
-    const itensDoDia = estado.demandas.filter(
-      (d) => (d.week_id === semana.id && d.bloco === dia) || d.data_publicacao === dataDoDia
-    );
-    const principal = ordenarPorCategoria(itensDoDia).find((i) => categoriaDaTarefa(i) === "social");
-
-    // "pronta" (card verde) = já existe a demanda criada pra esse dia --
-    // mesmo que ainda falte aprovar. Só fica vermelho quando NÃO tem
-    // nenhuma demanda de mídia social criada ainda pra esse dia. Dentro do
-    // verde, "aprovada" (validada/publicada) ganha um ✓, e o resto (pendente,
-    // em produção, aguardando validação...) ganha um ○ e mostra o status
-    // real, pra deixar claro que a aprovação ainda está pendente.
-    let pronta = false;
-    let aprovada = false;
-    let textoStatus = "Nenhuma tarefa de mídia social ainda";
-    let tituloTarefa = "";
-    let podeAprovar = false;
-    if (principal) {
-      pronta = true;
-      aprovada = principal.status === "validada" || principal.status === "publicada";
-      textoStatus = NOME_STATUS[principal.status] || principal.status;
-      tituloTarefa = principal.titulo;
-      podeAprovar = !aprovada;
-    }
-    if (aprovada) totalAprovadas++;
-
-    // Cada linha virou um mini-card: a área clicável (abre a tarefa no
-    // modal, ou já cria uma nova com o dia/semana certos pré-preenchidos
-    // quando ainda não existe nenhuma) traz status + rede social, e o
-    // botão Aprovar fica embaixo, de fora da área clicável -- essas duas
-    // linhas (prévia desta semana / próxima semana) substituem por completo
-    // o antigo grid de colunas por dia: agora são o único lugar pra ver e
-    // aprovar as tarefas de mídia social da semana atual e da seguinte.
-    return `
-      <div class="previa-linha ${pronta ? "previa-ok" : "previa-pendente"} ${pronta && !aprovada ? "previa-aguardando-aprovacao" : ""}">
-        <button type="button" class="previa-linha-abrir" data-previa-dia="${dia}" ${principal ? `data-previa-tarefa-id="${principal.id}"` : ""}
-          title="${escapeHtml(textoStatus)}${principal ? "" : " — clique para criar a tarefa desse dia"}">
-          <span class="previa-linha-topo">
-            <span class="previa-linha-dia">${NOME_DIA[dia].replace("-feira", "").slice(0, 3).toUpperCase()} ${formatarDataCurta(dataDoDia)}</span>
-            <span class="previa-linha-icone">${aprovada ? "✓" : pronta ? "○" : "●"}</span>
-          </span>
-          <span class="previa-linha-titulo">${tituloTarefa ? escapeHtml(tituloTarefa) : "Sem tarefa ainda — clique para criar"}</span>
+  const cards = r.dias
+    .map(({ dia, dataDoDia, principal, aprovada }) => {
+      const textoStatus = principal ? NOME_STATUS[principal.status] || principal.status : "";
+      const classe = !principal ? "dia-card-vazio" : aprovada ? "dia-card-aprovado" : "dia-card-aguardando";
+      return `
+        <div class="dia-card ${classe}">
+          <button type="button" class="dia-card-abrir" data-previa-dia="${dia}" data-previa-data="${dataDoDia}" ${principal ? `data-previa-tarefa-id="${principal.id}"` : ""}
+            title="${principal ? escapeHtml(principal.titulo) : "Clique para criar a tarefa desse dia"}">
+            <span class="dia-card-topo">
+              <span class="dia-card-dia">${NOME_DIA[dia].replace("-feira", "").slice(0, 3).toUpperCase()} ${formatarDataCurta(dataDoDia)}</span>
+              <span class="dia-card-icone">${aprovada ? "✓" : principal ? "○" : "+"}</span>
+            </span>
+            <span class="dia-card-titulo">${principal ? escapeHtml(principal.titulo) : "Sem tarefa ainda"}</span>
+            ${principal ? `<span class="dia-card-redes">${redesMiniHTML(principal)}</span>` : '<span class="dia-card-dica">Clique para criar</span>'}
+          </button>
           ${
             principal
-              ? `<span class="previa-linha-badges">
+              ? `<div class="dia-card-rodape">
                   <span class="pill pill-${principal.status}">${escapeHtml(textoStatus)}</span>
-                  ${chipsRedesSociaisHTML(principal)}
-                </span>`
+                  ${!aprovada ? `<button type="button" class="btn-aprovar-mini" data-acao="aprovar-tarefa-previa" data-id="${principal.id}" title="Aprovar" aria-label="Aprovar">✓</button>` : ""}
+                </div>`
               : ""
           }
-        </button>
-        ${podeAprovar ? `<button type="button" class="btn btn-aprovar btn-aprovar-previa" data-acao="aprovar-tarefa-previa" data-id="${principal.id}">Aprovar</button>` : ""}
-      </div>
-    `;
-  }).join("");
-
-  const pctAprovadas = Math.round((totalAprovadas / DIAS_SEMANA.length) * 100);
+        </div>
+      `;
+    })
+    .join("");
 
   el.style.display = "block";
   el.innerHTML = `
-    <div class="previa-semana-card previa-tema-${tema || "roxo"}">
-      <span class="previa-semana-tag">${escapeHtml(tagTexto || titulo)}</span>
-      <div class="previa-semana-topo">
-        <span class="previa-semana-icone">${SVG_RELOGIO}</span>
-        <div class="previa-semana-info">
-          <strong>${escapeHtml(titulo)}</strong>
-          <span class="previa-semana-prazo">Prazo máximo: ${formatarDataLonga(prazo)}</span>
+    <div class="semana-foco-card">
+      <div class="semana-foco-topo">
+        <div class="semana-foco-info">
+          <span class="semana-foco-tag semana-foco-tag-${tag === "Em andamento" ? "andamento" : tag === "Finalizada" ? "finalizada" : "outra"}">${tag}</span>
+          <strong>Semana de ${formatarDataCurta(inicio)} a ${formatarDataCurta(addDias(inicio, 4))}</strong>
+          <span class="semana-foco-prazo">${SVG_RELOGIO} Prazo máximo: ${formatarDataLonga(prazo)}</span>
         </div>
+        <div class="semana-foco-stat">
+          <span class="semana-foco-stat-numero">${r.totalAprovadas}/${DIAS_SEMANA.length}</span>
+          <span class="semana-foco-stat-label">prontas e aprovadas</span>
+          <div class="semana-foco-barra-trilho"><div class="semana-foco-barra-fill" style="width:${pct}%"></div></div>
+        </div>
+        ${inicio !== emAndamento ? `<button type="button" class="btn btn-ghost semana-foco-voltar" data-acao="voltar-semana-andamento">Voltar para a semana em andamento</button>` : ""}
       </div>
-      <div class="previa-semana-stat">
-        <span class="previa-semana-stat-numero">${totalAprovadas}/${DIAS_SEMANA.length}</span>
-        <span class="previa-semana-stat-label">prontas e aprovadas</span>
-      </div>
-      <div class="previa-semana-barra-trilho"><div class="previa-semana-barra-fill" style="width:${pctAprovadas}%"></div></div>
-      <div class="previa-semana-linhas">${cards}</div>
+      <div class="semana-foco-dias">${cards}</div>
     </div>
   `;
 
@@ -811,20 +838,26 @@ function renderPreviaSemana(elId, offsetDias, titulo, tema, tagTexto) {
         aoMudar: recarregarGrid,
         novaTarefa: {
           client_id: estado.clientId,
-          week_id: semana.id,
+          week_id: r.semana ? r.semana.id : null,
           bloco: btn.dataset.previaDia,
-          data_publicacao: addDias(semana.semana_inicio, window.OFFSET_DIA_SEMANA[btn.dataset.previaDia]),
+          data_publicacao: btn.dataset.previaData,
         },
       });
     });
   });
 
-  // Aprovar direto da prévia, sem abrir a tarefa inteira -- é a ação mais
-  // repetida no dia a dia (mesmo botão/comportamento que o grid de colunas
-  // por dia tinha antes de ser removido).
+  // Aprovar direto do card, sem abrir a tarefa inteira.
   el.querySelectorAll('[data-acao="aprovar-tarefa-previa"]').forEach((btn) => {
     btn.addEventListener("click", () => atualizarStatus(btn.dataset.id, "validada"));
   });
+
+  const btnVoltar = el.querySelector('[data-acao="voltar-semana-andamento"]');
+  if (btnVoltar) {
+    btnVoltar.addEventListener("click", () => {
+      estado.semanaVisivelInicio = null;
+      renderWeekTabs();
+    });
+  }
 }
 
 function renderWeekBanner() {
@@ -835,7 +868,7 @@ function renderWeekBanner() {
     return;
   }
 
-  const semana = estado.weeks.find((w) => w.id === estado.weekTabSelecionada);
+  const semana = estado.weeks.find((w) => w.semana_inicio === inicioSemanaEmFoco());
   if (!semana) {
     banner.style.display = "none";
     return;
@@ -970,10 +1003,11 @@ function renderTarefasDiariasSecao() {
     else foraDaSemana.push(x);
   });
 
-  Object.keys(porDia).forEach((dia) => {
-    porDia[dia].sort((a, b) => (a.dataEf < b.dataEf ? -1 : a.dataEf > b.dataEf ? 1 : 0));
-  });
-  foraDaSemana.sort((a, b) => (a.dataEf < b.dataEf ? -1 : a.dataEf > b.dataEf ? 1 : 0));
+  // Ordem de agenda: data, depois horário (sem horário vai pro final do dia).
+  const chaveOrdem = (x) => `${x.dataEf || "9999-99-99"} ${x.item.hora_publicacao ? x.item.hora_publicacao.slice(0, 5) : "99:99"}`;
+  const porAgenda = (a, b) => (chaveOrdem(a) < chaveOrdem(b) ? -1 : chaveOrdem(a) > chaveOrdem(b) ? 1 : 0);
+  Object.keys(porDia).forEach((dia) => porDia[dia].sort(porAgenda));
+  foraDaSemana.sort(porAgenda);
 
   // Cabeçalho de cada dia vira um botão: além da cor azul (mesma
   // identidade dos cards de Prévia), clicar nele recolhe/expande as
@@ -1027,7 +1061,7 @@ function renderTabelaTarefasDiarias(linhas) {
               : '<span class="tabela-diaria-vazio">—</span>'
           }</span>
           <span class="pill pill-${item.status}">${NOME_STATUS[item.status]}</span>
-          <span class="tabela-diaria-data">${SVG_RELOGIO}${dataEf ? formatarDataCurta(dataEf) : "—"}${item.recorrente_id ? '<span class="badge-recorrente-mini" title="Tarefa recorrente">↻</span>' : ""}</span>
+          <span class="tabela-diaria-data">${SVG_RELOGIO}${dataEf ? formatarDataCurta(dataEf) : "—"}${item.hora_publicacao ? `<strong class="tabela-diaria-hora">${item.hora_publicacao.slice(0, 5)}</strong>` : ""}${item.recorrente_id ? '<span class="badge-recorrente-mini" title="Tarefa recorrente">↻</span>' : ""}</span>
           <button type="button" class="tabela-diaria-obs" data-obs-tarefa-diaria="${item.id}" title="Clique para adicionar ou editar a observação">${item.descricao ? escapeHtml(item.descricao) : '<span class="tabela-diaria-vazio">+ observação</span>'}</button>
         </div>
       `;
@@ -1041,7 +1075,7 @@ function renderTabelaTarefasDiarias(linhas) {
         <span>Tarefa</span>
         <span>Responsável</span>
         <span>Status</span>
-        <span>Data</span>
+        <span>Data e horário</span>
         <span>Observação</span>
       </div>
       ${corpo}
@@ -1138,9 +1172,14 @@ function renderFormNovaTarefaDiaria() {
         <input type="date" class="input-data-diaria" value="${hoje}" />
       </div>
       <div class="field">
-        <label>Observação (opcional)</label>
-        <input type="text" class="input-obs-diaria" placeholder="Opcional" />
+        <label>Horário</label>
+        <input type="time" class="input-hora-diaria" />
+        <p class="field-hint">Define a ordem no Checklist de hoje (agenda por horário).</p>
       </div>
+    </div>
+    <div class="field">
+      <label>Observação (opcional)</label>
+      <input type="text" class="input-obs-diaria" placeholder="Opcional" />
     </div>
     <div class="field">
       <label class="checkbox-label"><input type="checkbox" class="input-recorrente-diaria" /> Repetir toda semana, nesse mesmo dia da semana</label>
@@ -1170,6 +1209,7 @@ function renderFormNovaTarefaDiaria() {
     const responsavelId = form.querySelector(".input-responsavel").value || null;
     const data = form.querySelector(".input-data-diaria").value || null;
     const observacao = form.querySelector(".input-obs-diaria").value.trim() || null;
+    const hora = form.querySelector(".input-hora-diaria").value || null;
     const querRecorrente = form.querySelector(".input-recorrente-diaria").checked;
 
     // Repetir toda semana usa o mesmo motor das tarefas recorrentes de
@@ -1199,6 +1239,7 @@ function renderFormNovaTarefaDiaria() {
           titulo,
           descricao: observacao,
           responsavel_id: responsavelId,
+          hora_publicacao: hora,
           tipo_publicacao: "manual",
           categoria: "diaria",
           ativo: true,
@@ -1213,6 +1254,7 @@ function renderFormNovaTarefaDiaria() {
           titulo,
           responsavel_id: responsavelId,
           data_publicacao: data,
+          hora_publicacao: hora,
           descricao: observacao,
           categoria: "diaria",
           tipo_publicacao: "manual",
@@ -1225,6 +1267,7 @@ function renderFormNovaTarefaDiaria() {
       }
       form.querySelector(".input-titulo-diaria").value = "";
       form.querySelector(".input-obs-diaria").value = "";
+      form.querySelector(".input-hora-diaria").value = "";
       form.querySelector(".input-data-diaria").value = hoje;
       form.querySelector(".input-recorrente-diaria").checked = false;
       form.classList.remove("open");
@@ -1315,8 +1358,10 @@ function renderMiniCalendarioPacote(mes, itensPacote, itensPublicacoes, semanaPo
     const temEvento = comemorativasDoDia.length || publicacoesDoDia.length;
     const ehHoje = dataISO === hojeISO;
     const tituloDia = [...publicacoesDoDia, ...comemorativasDoDia].map((e) => escapeHtml(e.titulo)).join(", ");
+    const ehAberto = estado.calendarioDiaAberto === dataISO;
     celulas += `
-      <div class="mini-cal-dia ${ehHoje ? "is-hoje" : ""} ${temEvento ? "tem-evento" : ""}" title="${tituloDia}">
+      <button type="button" class="mini-cal-dia ${ehHoje ? "is-hoje" : ""} ${temEvento ? "tem-evento" : ""} ${ehAberto ? "is-aberto" : ""}" data-cal-dia="${dataISO}"
+        title="${tituloDia || "Clique para criar uma tarefa nesse dia"}">
         <span class="mini-cal-dia-numero">${dia}</span>
         ${
           temEvento
@@ -1326,8 +1371,36 @@ function renderMiniCalendarioPacote(mes, itensPacote, itensPublicacoes, semanaPo
               </span>`
             : ""
         }
-      </div>
+      </button>
     `;
+  }
+
+  // Listinha do dia clicado, quando ele tem mais de uma tarefa.
+  let listaDiaHTML = "";
+  const diaAberto = estado.calendarioDiaAberto;
+  if (diaAberto && diaAberto.slice(0, 7) === mes) {
+    const itensDia = [...(porDiaPublicacao[diaAberto] || []), ...(porDiaComemorativa[diaAberto] || [])];
+    if (itensDia.length > 1) {
+      listaDiaHTML = `
+        <div class="mini-cal-lista">
+          <div class="mini-cal-lista-topo">
+            <strong>${formatarDataCurta(diaAberto)}</strong>
+            <button type="button" class="mini-cal-lista-fechar" data-acao="fechar-lista-dia" aria-label="Fechar">✕</button>
+          </div>
+          ${itensDia
+            .map(
+              (i) => `
+                <button type="button" class="mini-cal-lista-item" data-cal-abrir-tarefa="${i.id}">
+                  <span class="mini-cal-ponto ${i.bloco === "datas_comemorativas" ? "mini-cal-ponto-comemorativa" : ""}"></span>
+                  <span class="mini-cal-lista-titulo">${escapeHtml(i.titulo)}</span>
+                  <span class="pill pill-${i.status}">${escapeHtml(NOME_STATUS[i.status] || i.status)}</span>
+                </button>
+              `
+            )
+            .join("")}
+        </div>
+      `;
+    }
   }
 
   return `
@@ -1338,6 +1411,7 @@ function renderMiniCalendarioPacote(mes, itensPacote, itensPublicacoes, semanaPo
         <button type="button" class="btn btn-ghost" data-acao="pacote-mes-proximo" title="Próximo mês">›</button>
       </div>
       <div class="mini-calendario-grid">${celulas}</div>
+      ${listaDiaHTML}
       <div class="pacote-calendario-legenda">
         <span><span class="mini-cal-ponto"></span> Posts e publicações</span>
         <span><span class="mini-cal-ponto mini-cal-ponto-comemorativa"></span> Datas comemorativas</span>
@@ -1349,18 +1423,83 @@ function renderMiniCalendarioPacote(mes, itensPacote, itensPublicacoes, semanaPo
 function ligarEventosPacoteCalendario(container) {
   const btnAnterior = container.querySelector('[data-acao="pacote-mes-anterior"]');
   const btnProximo = container.querySelector('[data-acao="pacote-mes-proximo"]');
+  // As setas do calendário também trocam as abas de semana lá em cima.
   if (btnAnterior) {
     btnAnterior.addEventListener("click", () => {
       estado.pacoteCalendarioMes = somarMes(estado.pacoteCalendarioMes, -1);
-      renderSidebarDatasComemorativas();
+      estado.calendarioDiaAberto = null;
+      renderWeekTabs();
     });
   }
   if (btnProximo) {
     btnProximo.addEventListener("click", () => {
       estado.pacoteCalendarioMes = somarMes(estado.pacoteCalendarioMes, 1);
+      estado.calendarioDiaAberto = null;
+      renderWeekTabs();
+    });
+  }
+
+  // Clicar num dia: 1 tarefa abre direto; várias mostram a listinha pra
+  // escolher; nenhuma abre a criação já com a data preenchida. Não troca a
+  // semana mostrada na tela.
+  container.querySelectorAll("[data-cal-dia]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const data = btn.dataset.calDia;
+      const itens = itensDoDiaNoCalendario(data);
+      if (itens.length === 1) {
+        estado.calendarioDiaAberto = null;
+        window.abrirModalTarefa(itens[0].id, { aoMudar: recarregarGrid });
+        renderSidebarDatasComemorativas();
+        return;
+      }
+      if (itens.length > 1) {
+        estado.calendarioDiaAberto = estado.calendarioDiaAberto === data ? null : data;
+        renderSidebarDatasComemorativas();
+        return;
+      }
+      estado.calendarioDiaAberto = null;
+      renderSidebarDatasComemorativas();
+      const inicio = toISODate(segundaFeiraDe(new Date(data + "T00:00:00")));
+      const semana = estado.weeks.find((w) => w.semana_inicio === inicio);
+      const diaSemanaJS = new Date(data + "T00:00:00").getDay();
+      const bloco = Object.keys(window.OFFSET_DIA_SEMANA).find((k) => window.OFFSET_DIA_SEMANA[k] === diaSemanaJS - 1) || null;
+      window.abrirModalTarefa(null, {
+        aoMudar: recarregarGrid,
+        novaTarefa: {
+          client_id: estado.clientId,
+          week_id: semana && bloco ? semana.id : null,
+          bloco,
+          data_publicacao: data,
+        },
+      });
+    });
+  });
+
+  container.querySelectorAll("[data-cal-abrir-tarefa]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      window.abrirModalTarefa(btn.dataset.calAbrirTarefa, { aoMudar: recarregarGrid });
+    });
+  });
+  const btnFecharLista = container.querySelector('[data-acao="fechar-lista-dia"]');
+  if (btnFecharLista) {
+    btnFecharLista.addEventListener("click", () => {
+      estado.calendarioDiaAberto = null;
       renderSidebarDatasComemorativas();
     });
   }
+}
+
+// Mesmas regras dos pontinhos do calendário: publicações (mídia social) pela
+// data efetiva + datas comemorativas pelo prazo do pacote.
+function itensDoDiaNoCalendario(data) {
+  const semanaPorId = {};
+  estado.weeks.forEach((w) => (semanaPorId[w.id] = w));
+  const publicacoes = estado.demandas.filter((d) => {
+    if (d.bloco === "datas_comemorativas" || categoriaDaTarefa(d) !== "social") return false;
+    return dataEfetivaDaTarefa(d, d.week_id ? semanaPorId[d.week_id] : null) === data;
+  });
+  const comemorativas = estado.demandas.filter((d) => d.bloco === "datas_comemorativas" && (d.prazo_pacote || d.data_publicacao) === data);
+  return [...publicacoes, ...comemorativas];
 }
 
 function renderBlockCard({ bloco, titulo, weekId, semana, itens }) {
