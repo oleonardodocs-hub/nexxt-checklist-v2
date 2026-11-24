@@ -653,23 +653,23 @@ function resumoDaSemana(inicio) {
   return { inicio, semana, dias, totalAprovadas, temAberta, finalizada: totalAprovadas === DIAS_SEMANA.length };
 }
 
-// Semana "em andamento" = a que fica fixa na tela:
-// 1) se alguma semana que já passou ainda tem tarefa criada e não
-//    validada, ela continua sendo a semana em andamento (a mais antiga);
-// 2) senão, a partir da semana atual, a primeira que ainda não tem os 5
-//    dias aprovados. Quando todos ficam validados, pula sozinha pra seguinte.
+// Semana "em andamento" = a que fica fixa na tela: a semana atual enquanto
+// ela tiver algo em aberto; quando fica 5/5 aprovada, pula pra próxima que
+// ainda não está finalizada. Semanas passadas com tarefa em aberto não
+// tomam a tela: a aba delas fica em vermelho (atrasada).
 function inicioSemanaEmAndamento() {
   const segundaAtual = toISODate(segundaFeiraDe(new Date()));
-  const passadas = [...new Set(estado.weeks.map((w) => w.semana_inicio))].filter((i) => i < segundaAtual).sort();
-  for (const inicio of passadas) {
-    if (resumoDaSemana(inicio).temAberta) return inicio;
-  }
   let inicio = segundaAtual;
   for (let i = 0; i < 12; i++) {
     if (!resumoDaSemana(inicio).finalizada) return inicio;
     inicio = addDias(inicio, 7);
   }
   return segundaAtual;
+}
+
+function semanaAtrasada(inicio) {
+  const segundaAtual = toISODate(segundaFeiraDe(new Date()));
+  return inicio < segundaAtual && resumoDaSemana(inicio).temAberta;
 }
 
 // Semana mostrada agora: a escolhida nas abas, ou (sem escolha) a em andamento.
@@ -704,17 +704,27 @@ function renderWeekTabs() {
   if (!inicios.includes(emAndamento)) inicios.unshift(emAndamento);
   const modoHistorico = estado.weekTabSelecionada === "historico";
 
+  const segundaAtual = toISODate(segundaFeiraDe(new Date()));
+  // Semanas passadas com tarefa em aberto aparecem mesmo se forem de outro mês.
+  [...new Set(estado.weeks.map((w) => w.semana_inicio))]
+    .filter((i) => semanaAtrasada(i) && !inicios.includes(i))
+    .forEach((i) => inicios.push(i));
+  inicios.sort();
+
   const tabsSemana = inicios
     .map((inicio) => {
       const r = resumoDaSemana(inicio);
       const ativo = !modoHistorico && inicio === emFoco;
-      const corDot = r.finalizada ? "var(--status-good)" : inicio === emAndamento ? "var(--status-warning)" : "var(--accent-track)";
+      const atrasada = semanaAtrasada(inicio);
+      const ehAtual = inicio === segundaAtual;
+      const classes = ["week-tab", ativo ? "active" : "", ehAtual ? "is-atual" : "", r.finalizada ? "is-finalizada" : "", atrasada ? "is-atrasada" : ""].join(" ");
+      const titulo = r.finalizada ? "Semana validada e aprovada" : atrasada ? "Semana com tarefa atrasada" : ehAtual ? "Semana atual" : "";
       return `
-        <button class="week-tab ${ativo ? "active" : ""} ${inicio === emAndamento ? "is-em-andamento" : ""}" data-semana-inicio="${inicio}"
-          title="${inicio === emAndamento ? "Semana em andamento" : r.finalizada ? "Semana finalizada" : ""}">
-          <span class="tab-status-dot" style="background:${corDot};"></span>
+        <button class="${classes}" data-semana-inicio="${inicio}" title="${titulo}">
+          ${r.finalizada ? '<span class="week-tab-check">✓</span>' : '<span class="tab-status-dot"></span>'}
           ${formatarDataCurta(inicio)} a ${formatarDataCurta(addDias(inicio, 4))}
-          <span class="week-tab-progresso">${r.finalizada ? "✓" : `${r.totalAprovadas}/${DIAS_SEMANA.length}`}</span>
+          ${ehAtual ? '<span class="week-tab-atual">Atual</span>' : ""}
+          <span class="week-tab-progresso">${r.totalAprovadas}/${DIAS_SEMANA.length}</span>
         </button>
       `;
     })
@@ -751,15 +761,6 @@ function renderWeekTabs() {
   renderSidebarDatasComemorativas();
 }
 
-// Siglas das redes (no lugar das etiquetas com o nome inteiro, que quebravam
-// linha nos cards compactos). O nome completo aparece ao passar o mouse.
-const SIGLA_REDE = { instagram: "IG", facebook: "FB", linkedin: "IN", youtube: "YT" };
-function redesMiniHTML(item) {
-  return listaRedesSociais(item)
-    .map((v) => `<span class="rede-bolinha rede-bolinha-${v}" title="${nomeDeRedeSocial(v)}">${SIGLA_REDE[v] || v.slice(0, 2).toUpperCase()}</span>`)
-    .join("");
-}
-
 // A semana em foco: um bloco só, com os 5 dias (seg a sex) lado a lado.
 function renderSemanaEmFoco() {
   const el = document.getElementById("previa-semana");
@@ -782,44 +783,57 @@ function renderSemanaEmFoco() {
   const hojeISO = toISODate(new Date());
   const cards = r.dias
     .map(({ dia, dataDoDia, principal, aprovada }) => {
-      const textoStatus = principal ? (aprovada ? "Aprovada" : NOME_STATUS[principal.status] || principal.status) : "Sem tarefa";
       const classe = !principal ? "dia-card-vazio" : aprovada ? "dia-card-aprovado" : "dia-card-aguardando";
       const ehHoje = dataDoDia === hojeISO;
       const colaborador = principal && principal.responsavel_id ? estado.colaboradores.find((c) => c.id === principal.responsavel_id) : null;
       const hora = principal && principal.hora_publicacao ? principal.hora_publicacao.slice(0, 5) : "";
       const rotuloDia = `${NOME_DIA[dia].replace("-feira", "").slice(0, 3).toUpperCase()} ${formatarDataCurta(dataDoDia)}${hora ? ` · ${hora}` : ""}`;
-      const redes = principal ? redesMiniHTML(principal) : "";
       const atributosAbrir = `data-previa-dia="${dia}" data-previa-data="${dataDoDia}" ${principal ? `data-previa-tarefa-id="${principal.id}"` : ""}`;
-
-      if (!principal) {
-        return `
-          <div class="dia-card dia-card-vazio ${ehHoje ? "is-hoje" : ""}">
-            <button type="button" class="dia-card-corpo" ${atributosAbrir} title="Clique para criar a tarefa desse dia">
-              <span class="dia-card-pilula">${rotuloDia}</span>
-              <span class="dia-card-mais">+</span>
-              <span class="dia-card-vazio-texto">Criar tarefa</span>
-            </button>
-          </div>
-        `;
-      }
+      const textoStatus = principal ? NOME_STATUS[principal.status] || principal.status : "Ainda não criada";
+      const subStatus = principal
+        ? principal.prazo_producao
+          ? `Pronta até ${formatarDataCurta(principal.prazo_producao)}`
+          : `Publica ${formatarDataCurta(dataDoDia)}${hora ? ` · ${hora}` : ""}`
+        : formatarDataCurta(dataDoDia);
+      const iconeStatus = aprovada ? "✓" : principal ? "○" : "+";
 
       return `
         <div class="dia-card ${classe} ${ehHoje ? "is-hoje" : ""}">
-          <button type="button" class="dia-card-corpo" ${atributosAbrir} title="${escapeHtml(principal.titulo)}">
-            <span class="dia-card-responsavel">
-              ${
-                colaborador
-                  ? `<span class="dia-card-avatar">${escapeHtml(inicialAvatar(colaborador.nome))}</span><span class="dia-card-responsavel-nome">${escapeHtml(colaborador.nome)}</span>`
-                  : '<span class="dia-card-responsavel-nome is-vazio">Sem responsável</span>'
-              }
+          <button type="button" class="dia-card-topo-azul" ${atributosAbrir} title="${principal ? escapeHtml(principal.titulo) : "Clique para criar a tarefa desse dia"}">
+            <span class="dia-card-linha-topo">
+              <span class="dia-card-responsavel">
+                ${
+                  colaborador
+                    ? `<span class="dia-card-avatar">${escapeHtml(inicialAvatar(colaborador.nome))}</span><span class="dia-card-responsavel-nome">${escapeHtml(colaborador.nome.split(" ")[0])}</span>`
+                    : `<span class="dia-card-responsavel-nome is-vazio">${principal ? "Sem responsável" : "Livre"}</span>`
+                }
+              </span>
+              <span class="dia-card-icone">${iconeStatus}</span>
             </span>
             <span class="dia-card-pilula">${rotuloDia}</span>
-            <span class="dia-card-titulo">${escapeHtml(principal.titulo)}</span>
-            ${redes ? `<span class="dia-card-redes">${redes}</span>` : ""}
+            <span class="dia-card-titulo">${principal ? escapeHtml(principal.titulo) : "Sem tarefa"}</span>
           </button>
-          <div class="dia-card-rodape">
-            <span class="dia-card-status"><span class="dia-card-status-ponto"></span>${escapeHtml(textoStatus)}</span>
-            ${!aprovada ? `<button type="button" class="dia-card-aprovar" data-acao="aprovar-tarefa-previa" data-id="${principal.id}">Aprovar ✓</button>` : ""}
+          <div class="dia-card-redes">${linhaRedesHTML(principal)}</div>
+          <div class="dia-card-base">
+            <div class="dia-card-painel">
+              <span class="dia-card-painel-rotulo">Status</span>
+              <span class="dia-card-painel-linha">
+                <strong>${escapeHtml(textoStatus)}</strong>
+                <span>${subStatus}</span>
+              </span>
+            </div>
+            <div class="dia-card-acoes">
+              ${
+                principal
+                  ? `<button type="button" class="dia-card-btn" ${atributosAbrir}>Abrir</button>
+                     ${
+                       aprovada
+                         ? `<span class="dia-card-btn dia-card-btn-ok">Aprovada ✓</span>`
+                         : `<button type="button" class="dia-card-btn dia-card-btn-principal" data-acao="aprovar-tarefa-previa" data-id="${principal.id}">Aprovar ✓</button>`
+                     }`
+                  : `<button type="button" class="dia-card-btn dia-card-btn-principal dia-card-btn-cheio" ${atributosAbrir}>+ Criar tarefa</button>`
+              }
+            </div>
           </div>
         </div>
       `;
@@ -845,7 +859,10 @@ function renderSemanaEmFoco() {
           <span class="semana-foco-stat-label">prontas e aprovadas</span>
           <div class="semana-foco-segmentos" title="${pct}% da semana aprovada">${segmentos}</div>
         </div>
-        ${inicio !== emAndamento ? `<button type="button" class="btn btn-ghost semana-foco-voltar" data-acao="voltar-semana-andamento">Voltar para a semana em andamento</button>` : ""}
+        <div class="semana-foco-botoes">
+          ${r.semana && r.semana.status === "aguardando_validacao" ? `<button type="button" class="btn btn-primary" data-acao="validar-semana" title="Semana pronta para ser apresentada e validada na sexta-feira">Validar semana</button>` : ""}
+          ${inicio !== emAndamento ? `<button type="button" class="btn btn-ghost semana-foco-voltar" data-acao="voltar-semana-andamento">Voltar para a semana em andamento</button>` : ""}
+        </div>
       </div>
       <div class="semana-foco-dias">${cards}</div>
     </div>
@@ -875,6 +892,9 @@ function renderSemanaEmFoco() {
     btn.addEventListener("click", () => atualizarStatus(btn.dataset.id, "validada"));
   });
 
+  const btnValidarSemana = el.querySelector('[data-acao="validar-semana"]');
+  if (btnValidarSemana) btnValidarSemana.addEventListener("click", () => validarSemana(r.semana.id));
+
   const btnVoltar = el.querySelector('[data-acao="voltar-semana-andamento"]');
   if (btnVoltar) {
     btnVoltar.addEventListener("click", () => {
@@ -886,6 +906,9 @@ function renderSemanaEmFoco() {
 
 function renderWeekBanner() {
   const banner = document.getElementById("week-banner");
+  // O aviso roxo saiu: o "Validar semana" agora fica dentro do card da semana.
+  banner.style.display = "none";
+  if (banner) return;
 
   if (estado.weekTabSelecionada === "historico") {
     banner.style.display = "none";

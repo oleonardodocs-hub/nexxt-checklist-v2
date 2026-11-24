@@ -97,10 +97,42 @@ const SVG_PASTA =
 // continuam funcionando normalmente.
 window.REDES_SOCIAIS_LISTA = [
   { valor: "instagram", nome: "Instagram" },
+  { valor: "tiktok", nome: "TikTok" },
+  { valor: "youtube", nome: "YouTube" },
   { valor: "facebook", nome: "Facebook" },
   { valor: "linkedin", nome: "LinkedIn" },
-  { valor: "youtube", nome: "YouTube" },
 ];
+
+// Ícone oficial de cada rede (assets/redes/<rede>.png).
+function iconeRedeHTML(valor, ligada) {
+  return `<span class="rede-icone rede-icone-${valor} ${ligada ? "is-on" : "is-off"}" title="${nomeDeRedeSocial(valor)}${ligada ? "" : " (não vai ser usada)"}"><img src="assets/redes/${valor}.png" alt="${nomeDeRedeSocial(valor)}" /></span>`;
+}
+
+// Todas as redes em linha: coloridas as que vão ser publicadas, em preto e
+// branco (desligadas) as que não vão.
+function linhaRedesHTML(item) {
+  const marcadas = new Set(listaRedesSociais(item));
+  return window.REDES_SOCIAIS_LISTA.map((r) => iconeRedeHTML(r.valor, marcadas.has(r.valor))).join("");
+}
+
+// Versão clicável (modal): cada ícone é um checkbox escondido. Usa a mesma
+// estrutura de grupo que redesSociaisCheckboxesHTML, então
+// obterRedesSociaisMarcadas continua funcionando igual.
+function redesSociaisIconesToggleHTML(item, classeGrupo) {
+  const marcadas = new Set(listaRedesSociais(item));
+  return `
+    <div class="${classeGrupo} redes-toggle-grupo">
+      ${window.REDES_SOCIAIS_LISTA.map(
+        (r) => `
+          <label class="rede-toggle" title="${r.nome}">
+            <input type="checkbox" value="${r.valor}" ${marcadas.has(r.valor) ? "checked" : ""} />
+            <span class="rede-icone rede-icone-${r.valor}"><img src="assets/redes/${r.valor}.png" alt="" /></span>
+            <span class="rede-toggle-nome">${r.nome}</span>
+          </label>`
+      ).join("")}
+    </div>
+  `;
+}
 
 function listaRedesSociais(item) {
   const valor = item && item.rede_social;

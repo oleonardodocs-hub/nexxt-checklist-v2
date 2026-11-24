@@ -151,6 +151,12 @@
     const opcoesResponsavel = colaboradores
       .map((c) => `<option value="${c.id}" ${c.id === tarefa.responsavel_id ? "selected" : ""}>${escaparHtml(c.nome)}${c.funcao ? ` (${escaparHtml(c.funcao)})` : ""}</option>`)
       .join("");
+    const responsavelAtual = colaboradores.find((c) => c.id === tarefa.responsavel_id) || null;
+    const dataPrincipal = isPacote ? tarefa.prazo_pacote : tarefa.prazo_producao || tarefa.data_publicacao;
+    const hojeISO = toISODateModal(new Date());
+    const aprovadaModal = ["validada", "agendada", "manual_pendente", "publicada"].includes(tarefa.status);
+    const atrasada = !isNovo && dataPrincipal && dataPrincipal < hojeISO && !aprovadaModal;
+    const textoData = dataPrincipal ? `${dataLegivelModal(dataPrincipal)}${!isPacote && horaVal ? ` · ${horaVal}` : ""}` : "";
     const prop = (icone, rotulo, conteudo, extraClasse) => `
       <div class="mt-prop ${extraClasse || ""}">
         <span class="mt-prop-rotulo">${ICONES_MT[icone] || ""}<span>${rotulo}</span></span>
@@ -170,7 +176,14 @@
           <button type="button" class="mt-status-ok" id="btn-aprovar-modal" title="Marcar como validada">✓</button>
         </div>`
       ),
-      prop("pessoa", "Responsável", `<select class="input-responsavel-modal mt-input"><option value="">Vazio</option>${opcoesResponsavel}</select>`),
+      prop(
+        "pessoa",
+        "Responsável",
+        `<div class="mt-responsavel">
+          <span class="mt-responsavel-avatar" id="mt-responsavel-avatar">${responsavelAtual ? escaparHtml(iniciaisChat(responsavelAtual.nome)) : "?"}</span>
+          <select class="input-responsavel-modal mt-input"><option value="">Vazio</option>${opcoesResponsavel}</select>
+        </div>`
+      ),
       isPacote
         ? prop("calendario", "Data", `<input type="date" class="input-prazo-modal mt-input" value="${tarefa.prazo_pacote || ""}" />`)
         : prop("calendario", "Publicação", `<input type="date" class="input-data-modal mt-input" value="${tarefa.data_publicacao || ""}" />`),
@@ -200,33 +213,48 @@
             </select>`
           )
         : "",
-      prop("link", "Referência", `<input type="url" class="input-link-referencia-modal mt-input" placeholder="Vazio" value="${escaparHtml(tarefa.link_referencia || "")}" />`),
-      prop("link", "Arte pronta (CRM)", `<input type="url" class="input-link-modal mt-input" placeholder="Vazio" value="${escaparHtml(tarefa.link || "")}" />`),
-      categoria === "social" ? prop("rede", "Redes sociais", redesSociaisCheckboxesHTML(tarefa, "input-rede-social-modal"), "mt-prop-largo") : "",
+      prop(
+        "link",
+        "Referência",
+        `<div class="mt-link">
+          <input type="url" class="input-link-referencia-modal mt-input" placeholder="Cole o link" value="${escaparHtml(tarefa.link_referencia || "")}" />
+          <a class="mt-link-abrir" href="${escaparHtml(tarefa.link_referencia || "#")}" target="_blank" rel="noopener" style="${tarefa.link_referencia ? "" : "display:none"}">Abrir ↗</a>
+        </div>`
+      ),
+      prop(
+        "link",
+        "Arte pronta (CRM)",
+        `<div class="mt-link">
+          <input type="url" class="input-link-modal mt-input" placeholder="Cole o link" value="${escaparHtml(tarefa.link || "")}" />
+          <a class="mt-link-abrir" href="${escaparHtml(tarefa.link || "#")}" target="_blank" rel="noopener" style="${tarefa.link ? "" : "display:none"}">Abrir ↗</a>
+        </div>`
+      ),
+      categoria === "social" ? prop("rede", "Redes sociais", redesSociaisIconesToggleHTML(tarefa, "input-rede-social-modal"), "mt-prop-largo") : "",
     ].join("");
 
     overlay.innerHTML = `
       <div class="modal-card modal-tarefa-cu ${isNovo ? "sem-chat" : ""}" style="${corCliente ? `--client-color:${corCliente}` : ""}">
         <div class="mt-main">
-          <div class="mt-topo">
-            <div class="mt-chips">
-              ${cliente ? `<span class="mt-chip mt-chip-cliente"><span class="mt-chip-ponto"></span>${escaparHtml(cliente.nome)}</span>` : ""}
-              <span class="mt-chip">${rotuloTipo}</span>
-              ${tarefa.recorrente_id ? '<span class="mt-chip">Recorrente</span>' : ""}
+          <div class="mt-cabecalho">
+            <div class="mt-topo">
+              <div class="mt-chips">
+                ${cliente ? `<span class="mt-chip mt-chip-cliente"><span class="mt-chip-ponto"></span>${escaparHtml(cliente.nome)}</span>` : ""}
+                <span class="mt-chip">${rotuloTipo}</span>
+                ${textoData ? `<span class="mt-chip ${atrasada ? "mt-chip-atrasada" : ""}">${ICONES_MT.calendario}${textoData}${atrasada ? " · Atrasada" : ""}</span>` : ""}
+                ${
+                  tarefa.recorrente_id
+                    ? `<span class="mt-chip mt-chip-recorrente">↻ Repete toda ${(NOME_DIA_MODAL[tarefa.bloco] || "").replace("-feira", "").toLowerCase()}
+                        <button type="button" id="btn-parar-recorrencia-modal" data-recorrente-id="${tarefa.recorrente_id}">Parar</button></span>`
+                    : ""
+                }
+              </div>
+              <button type="button" class="mt-fechar" id="btn-fechar-modal-tarefa" aria-label="Fechar" title="Fechar">✕</button>
             </div>
-            <button type="button" class="mt-fechar" id="btn-fechar-modal-tarefa" aria-label="Fechar" title="Fechar">✕</button>
+
+            <input type="text" class="input-titulo-modal mt-titulo" placeholder="${isNovo ? "Nome da nova tarefa" : "Nome da tarefa"}" value="${escaparHtml(tarefa.titulo || "")}" />
+
+            <div class="mt-etapas" id="mt-etapas">${etapasHTML(tarefa.status)}</div>
           </div>
-
-          <input type="text" class="input-titulo-modal mt-titulo" placeholder="${isNovo ? "Nome da nova tarefa" : "Nome da tarefa"}" value="${escaparHtml(tarefa.titulo || "")}" />
-
-          ${
-            tarefa.recorrente_id
-              ? `<div class="aviso-recorrente">
-                  <span>Essa tarefa se repete toda ${NOME_DIA_MODAL[tarefa.bloco] || ""}.</span>
-                  <button type="button" class="btn btn-ghost" id="btn-parar-recorrencia-modal" data-recorrente-id="${tarefa.recorrente_id}">Parar de repetir</button>
-                </div>`
-              : ""
-          }
 
           <div class="mt-props">${propriedades}</div>
 
@@ -268,6 +296,9 @@
                       ${colaboradores.map((c) => `<option value="${c.id}">${escaparHtml(c.nome)}</option>`).join("")}
                     </select>
                   </div>
+                  <div class="mt-chat-rapidas">
+                    ${RESPOSTAS_RAPIDAS.map((t) => `<button type="button" data-resposta-rapida="${t}">${t}</button>`).join("")}
+                  </div>
                   <div class="mt-chat-caixa">
                     <textarea id="mt-chat-texto" rows="2" placeholder="Escreva um comentário"></textarea>
                     <button type="button" class="mt-chat-enviar" id="mt-chat-enviar" title="Enviar (Enter)">${ICONES_MT.enviar}</button>
@@ -280,6 +311,34 @@
     `;
 
     if (!isNovo) ligarChat(tarefa, colaboradores);
+
+    function religarEtapas() {
+      overlay.querySelectorAll("[data-etapa]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const sel = overlay.querySelector(".input-status-modal");
+          if (sel.value === btn.dataset.etapa) return;
+          sel.value = btn.dataset.etapa;
+          sel.dispatchEvent(new Event("change"));
+        });
+      });
+    }
+    religarEtapas();
+
+    const selResp = overlay.querySelector(".input-responsavel-modal");
+    selResp.addEventListener("change", () => {
+      const c = colaboradores.find((x) => x.id === selResp.value);
+      document.getElementById("mt-responsavel-avatar").textContent = c ? iniciaisChat(c.nome) : "?";
+    });
+
+    overlay.querySelectorAll(".mt-link").forEach((box) => {
+      const input = box.querySelector("input");
+      const link = box.querySelector(".mt-link-abrir");
+      input.addEventListener("input", () => {
+        const v = input.value.trim();
+        link.style.display = /^https?:\/\//i.test(v) ? "" : "none";
+        link.href = v || "#";
+      });
+    });
 
     const btnAprovarModal = document.getElementById("btn-aprovar-modal");
     if (btnAprovarModal) {
@@ -300,6 +359,8 @@
       if (isNovo) {
         tarefa.status = ev.target.value;
         ev.target.className = `input-status-modal mt-status-select mt-status-${tarefa.status}`;
+        document.getElementById("mt-etapas").innerHTML = etapasHTML(tarefa.status);
+        religarEtapas();
         return;
       }
       const { error } = await window.supabaseClient.from("demandas").update({ status: ev.target.value }).eq("id", tarefa.id);
@@ -309,6 +370,8 @@
       }
       tarefa.status = ev.target.value;
       ev.target.className = `input-status-modal mt-status-select mt-status-${tarefa.status}`;
+      document.getElementById("mt-etapas").innerHTML = etapasHTML(tarefa.status);
+      religarEtapas();
       mostrarMsgModal("Status atualizado.", false);
       if (aoMudarAtual) aoMudarAtual();
     });
@@ -499,6 +562,43 @@
     enviar: '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M3.4 20.4l17.5-7.5a1 1 0 0 0 0-1.8L3.4 3.6a1 1 0 0 0-1.4 1.1L4 11l9 1-9 1-2 6.3a1 1 0 0 0 1.4 1.1z"/></svg>',
   };
 
+  // Linha do tempo do status (etapas clicáveis). Agendada e publicação
+  // manual pendente contam como a etapa "Aprovada".
+  const ETAPAS_MT = [
+    { valor: "pendente", nome: "Pendente" },
+    { valor: "em_producao", nome: "Produção" },
+    { valor: "aguardando_validacao", nome: "Validação" },
+    { valor: "validada", nome: "Aprovada" },
+    { valor: "publicada", nome: "Publicada" },
+  ];
+  function etapasHTML(status) {
+    const s = status === "agendada" || status === "manual_pendente" ? "validada" : status;
+    const idx = Math.max(0, ETAPAS_MT.findIndex((e) => e.valor === s));
+    return ETAPAS_MT.map(
+      (e, i) => `
+        <button type="button" class="mt-etapa ${i < idx ? "is-feita" : ""} ${i === idx ? "is-atual" : ""}" data-etapa="${e.valor}" title="Mudar para ${e.nome}">
+          <span class="mt-etapa-bola">${i < idx ? "✓" : i + 1}</span>
+          <span class="mt-etapa-nome">${e.nome}</span>
+        </button>`
+    ).join('<span class="mt-etapa-linha"></span>');
+  }
+
+  const DIA_SEMANA_CURTO = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+  function dataLegivelModal(iso) {
+    const d = new Date(iso + "T00:00:00");
+    if (isNaN(d)) return iso;
+    return `${DIA_SEMANA_CURTO[d.getDay()]}, ${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`;
+  }
+
+  // Cor fixa por pessoa (a partir do nome), pros avatares do chat.
+  const CORES_AVATAR = ["#6250d6", "#2a78d6", "#1baf7a", "#eb6834", "#e87ba4", "#c98500", "#0d9488", "#e34948"];
+  function corAvatar(nome) {
+    let h = 0;
+    for (const ch of nome || "") h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+    return CORES_AVATAR[h % CORES_AVATAR.length];
+  }
+  const RESPOSTAS_RAPIDAS = ["Ajuste pedido", "Aprovado pelo cliente", "Postado"];
+
   function formatarDataHoraChat(iso, soData) {
     const d = new Date(iso);
     if (isNaN(d)) return "";
@@ -542,6 +642,7 @@
       if (!comentarios.length) {
         lista.innerHTML = `
           <div class="mt-chat-vazio">
+            <span class="mt-chat-vazio-icone">💬</span>
             <strong>Envie o primeiro comentário</strong>
             <span>Faça uma pergunta, deixe uma atualização ou um ajuste pedido pelo cliente.</span>
           </div>`;
@@ -552,7 +653,7 @@
           const nome = c.autor_nome || "Equipe";
           return `
             <div class="mt-comentario">
-              <span class="mt-comentario-avatar">${escaparHtml(iniciaisChat(nome))}</span>
+              <span class="mt-comentario-avatar" style="background:${corAvatar(nome)}">${escaparHtml(iniciaisChat(nome))}</span>
               <div class="mt-comentario-corpo">
                 <div class="mt-comentario-topo"><strong>${escaparHtml(nome)}</strong><span>${formatarDataHoraChat(c.created_at)}</span></div>
                 <div class="mt-comentario-texto">${escaparHtml(c.texto).replace(/\n/g, "<br>")}</div>
@@ -596,6 +697,12 @@
     }
 
     btnEnviar.addEventListener("click", enviar);
+    document.querySelectorAll("[data-resposta-rapida]").forEach((b) => {
+      b.addEventListener("click", () => {
+        texto.value = texto.value.trim() ? `${texto.value.trim()} ${b.dataset.respostaRapida}` : b.dataset.respostaRapida + ": ";
+        texto.focus();
+      });
+    });
     texto.addEventListener("keydown", (ev) => {
       if (ev.key === "Enter" && !ev.shiftKey) {
         ev.preventDefault();
