@@ -779,47 +779,56 @@ function renderSemanaEmFoco() {
   let tag = "Em andamento";
   if (inicio !== emAndamento) tag = r.finalizada ? "Finalizada" : inicio > emAndamento ? "Próxima" : "Anterior";
 
+  const hojeISO = toISODate(new Date());
   const cards = r.dias
     .map(({ dia, dataDoDia, principal, aprovada }) => {
-      const textoStatus = principal ? NOME_STATUS[principal.status] || principal.status : "Ainda não criada";
+      const textoStatus = principal ? (aprovada ? "Aprovada" : NOME_STATUS[principal.status] || principal.status) : "Sem tarefa";
       const classe = !principal ? "dia-card-vazio" : aprovada ? "dia-card-aprovado" : "dia-card-aguardando";
-      const rotuloDia = `${NOME_DIA[dia].replace("-feira", "").slice(0, 3).toUpperCase()} ${formatarDataCurta(dataDoDia)}`;
+      const ehHoje = dataDoDia === hojeISO;
       const colaborador = principal && principal.responsavel_id ? estado.colaboradores.find((c) => c.id === principal.responsavel_id) : null;
       const hora = principal && principal.hora_publicacao ? principal.hora_publicacao.slice(0, 5) : "";
+      const rotuloDia = `${NOME_DIA[dia].replace("-feira", "").slice(0, 3).toUpperCase()} ${formatarDataCurta(dataDoDia)}${hora ? ` · ${hora}` : ""}`;
       const redes = principal ? redesMiniHTML(principal) : "";
       const atributosAbrir = `data-previa-dia="${dia}" data-previa-data="${dataDoDia}" ${principal ? `data-previa-tarefa-id="${principal.id}"` : ""}`;
+
+      if (!principal) {
+        return `
+          <div class="dia-card dia-card-vazio ${ehHoje ? "is-hoje" : ""}">
+            <button type="button" class="dia-card-corpo" ${atributosAbrir} title="Clique para criar a tarefa desse dia">
+              <span class="dia-card-pilula">${rotuloDia}</span>
+              <span class="dia-card-mais">+</span>
+              <span class="dia-card-vazio-texto">Criar tarefa</span>
+            </button>
+          </div>
+        `;
+      }
+
       return `
-        <div class="dia-card ${classe}">
-          <button type="button" class="dia-card-corpo" ${atributosAbrir} title="${principal ? escapeHtml(principal.titulo) : "Clique para criar a tarefa desse dia"}">
-            <span class="dia-card-topo">
-              <span class="dia-card-responsavel">${colaborador ? `<span class="dia-card-responsavel-ponto"></span>${escapeHtml(colaborador.nome)}` : "Sem responsável"}</span>
-              <span class="dia-card-icone">${aprovada ? "✓" : principal ? "○" : "+"}</span>
+        <div class="dia-card ${classe} ${ehHoje ? "is-hoje" : ""}">
+          <button type="button" class="dia-card-corpo" ${atributosAbrir} title="${escapeHtml(principal.titulo)}">
+            <span class="dia-card-responsavel">
+              ${
+                colaborador
+                  ? `<span class="dia-card-avatar">${escapeHtml(inicialAvatar(colaborador.nome))}</span><span class="dia-card-responsavel-nome">${escapeHtml(colaborador.nome)}</span>`
+                  : '<span class="dia-card-responsavel-nome is-vazio">Sem responsável</span>'
+              }
             </span>
             <span class="dia-card-pilula">${rotuloDia}</span>
-            <span class="dia-card-titulo">${principal ? escapeHtml(principal.titulo) : "Sem tarefa"}</span>
-            <span class="dia-card-redes">${redes || '<span class="dia-card-redes-vazio">Nenhuma rede</span>'}</span>
-            <span class="dia-card-painel">
-              <span class="dia-card-painel-rotulo">Status</span>
-              <span class="dia-card-painel-linha">
-                <span class="dia-card-painel-icone">${aprovada ? "✓" : principal ? "○" : "+"}</span>
-                <span class="dia-card-painel-textos">
-                  <span class="dia-card-painel-status">${escapeHtml(textoStatus)}</span>
-                  <span class="dia-card-painel-data">${formatarDataCurta(dataDoDia)}${hora ? ` · ${hora}` : ""}</span>
-                </span>
-              </span>
-            </span>
+            <span class="dia-card-titulo">${escapeHtml(principal.titulo)}</span>
+            ${redes ? `<span class="dia-card-redes">${redes}</span>` : ""}
           </button>
-          <div class="dia-card-acoes">
-            ${
-              principal
-                ? `<button type="button" class="dia-card-btn" ${atributosAbrir}>Abrir</button>
-                   ${!aprovada ? `<button type="button" class="dia-card-btn dia-card-btn-principal" data-acao="aprovar-tarefa-previa" data-id="${principal.id}">Aprovar ✓</button>` : ""}`
-                : `<button type="button" class="dia-card-btn dia-card-btn-principal" ${atributosAbrir}>Criar +</button>`
-            }
+          <div class="dia-card-rodape">
+            <span class="dia-card-status"><span class="dia-card-status-ponto"></span>${escapeHtml(textoStatus)}</span>
+            ${!aprovada ? `<button type="button" class="dia-card-aprovar" data-acao="aprovar-tarefa-previa" data-id="${principal.id}">Aprovar ✓</button>` : ""}
           </div>
         </div>
       `;
     })
+    .join("");
+
+  // Barra de progresso em 5 tracinhos, um por dia, aceso quando aprovado.
+  const segmentos = r.dias
+    .map(({ principal, aprovada }) => `<span class="semana-foco-seg ${aprovada ? "is-aceso" : principal ? "is-criado" : ""}"></span>`)
     .join("");
 
   el.style.display = "block";
@@ -834,7 +843,7 @@ function renderSemanaEmFoco() {
         <div class="semana-foco-stat">
           <span class="semana-foco-stat-numero">${r.totalAprovadas}/${DIAS_SEMANA.length}</span>
           <span class="semana-foco-stat-label">prontas e aprovadas</span>
-          <div class="semana-foco-barra-trilho"><div class="semana-foco-barra-fill" style="width:${pct}%"></div></div>
+          <div class="semana-foco-segmentos" title="${pct}% da semana aprovada">${segmentos}</div>
         </div>
         ${inicio !== emAndamento ? `<button type="button" class="btn btn-ghost semana-foco-voltar" data-acao="voltar-semana-andamento">Voltar para a semana em andamento</button>` : ""}
       </div>
@@ -1326,17 +1335,63 @@ function renderPacoteCalendarioEAgenda() {
   const itensPublicacoes = estado.demandas.filter((d) => d.bloco !== "datas_comemorativas" && categoriaDaTarefa(d) === "social");
 
   const calendarioHTML = renderMiniCalendarioPacote(estado.pacoteCalendarioMes, itensPacote, itensPublicacoes, semanaPorId);
-  const agendaHTML = renderBlockCard({
-    bloco: "datas_comemorativas",
-    titulo: "Datas comemorativas",
-    weekId: null,
-    itens: itensPacote,
-  });
+  const agendaHTML = renderListaComemorativas(itensPacote);
 
   return `
     <div class="pacote-calendario-agenda">
       <div class="pacote-calendario-coluna">${calendarioHTML}</div>
       <div class="pacote-agenda-coluna">${agendaHTML}</div>
+    </div>
+  `;
+}
+
+// Lista de datas comemorativas abaixo do calendário, em cards brancos
+// (ícone com o dia, nome, data + status e seta). Mostra as próximas 4;
+// "Ver todas" abre a lista inteira. Clicar abre a tarefa.
+const NOME_MES_CURTO = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"];
+function renderListaComemorativas(itensPacote) {
+  const hojeISO = toISODate(new Date());
+  const dataDe = (i) => i.prazo_pacote || i.data_publicacao || "";
+  const ordenados = [...itensPacote].sort((a, b) => {
+    const da = dataDe(a) || "9999";
+    const db = dataDe(b) || "9999";
+    return da < db ? -1 : da > db ? 1 : 0;
+  });
+  const proximas = ordenados.filter((i) => !dataDe(i) || dataDe(i) >= hojeISO);
+  const verTodas = !!estado.comemorativasVerTodas;
+  const visiveis = verTodas ? ordenados : proximas.slice(0, 4);
+  const temMais = verTodas || ordenados.length > visiveis.length;
+
+  const itensHTML = visiveis
+    .map((i) => {
+      const data = dataDe(i);
+      const passada = data && data < hojeISO;
+      return `
+        <button type="button" class="comemorativa-item ${passada ? "is-passada" : ""}" data-cal-abrir-tarefa="${i.id}">
+          <span class="comemorativa-icone">
+            <strong>${data ? data.slice(8, 10) : "?"}</strong>
+            <small>${data ? NOME_MES_CURTO[Number(data.slice(5, 7)) - 1] : ""}</small>
+          </span>
+          <span class="comemorativa-textos">
+            <span class="comemorativa-titulo">${escapeHtml(i.titulo)}</span>
+            <span class="comemorativa-sub">${data ? formatarDataCurta(data) : "Sem data"} · ${escapeHtml(NOME_STATUS[i.status] || i.status)}</span>
+          </span>
+          <span class="comemorativa-seta">›</span>
+        </button>
+      `;
+    })
+    .join("");
+
+  return `
+    <div class="comemorativas-card">
+      <div class="comemorativas-topo">
+        <strong>Datas comemorativas</strong>
+        ${temMais ? `<button type="button" class="comemorativas-ver-todas" data-acao="comemorativas-ver-todas">${verTodas ? "Ver menos" : "Ver todas"}</button>` : ""}
+      </div>
+      <div class="comemorativas-lista">
+        ${itensHTML || '<p class="comemorativas-vazio">Nenhuma data comemorativa por vir.</p>'}
+      </div>
+      <button type="button" class="comemorativas-adicionar" data-acao="nova-comemorativa">+ Adicionar data comemorativa</button>
     </div>
   `;
 }
@@ -1495,6 +1550,22 @@ function ligarEventosPacoteCalendario(container) {
       window.abrirModalTarefa(btn.dataset.calAbrirTarefa, { aoMudar: recarregarGrid });
     });
   });
+  const btnVerTodas = container.querySelector('[data-acao="comemorativas-ver-todas"]');
+  if (btnVerTodas) {
+    btnVerTodas.addEventListener("click", () => {
+      estado.comemorativasVerTodas = !estado.comemorativasVerTodas;
+      renderSidebarDatasComemorativas();
+    });
+  }
+  const btnNovaComemorativa = container.querySelector('[data-acao="nova-comemorativa"]');
+  if (btnNovaComemorativa) {
+    btnNovaComemorativa.addEventListener("click", () => {
+      window.abrirModalTarefa(null, {
+        aoMudar: recarregarGrid,
+        novaTarefa: { client_id: estado.clientId, week_id: null, bloco: "datas_comemorativas" },
+      });
+    });
+  }
   const btnFecharLista = container.querySelector('[data-acao="fechar-lista-dia"]');
   if (btnFecharLista) {
     btnFecharLista.addEventListener("click", () => {

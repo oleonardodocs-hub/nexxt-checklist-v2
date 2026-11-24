@@ -147,22 +147,78 @@
 
     const corCliente = cliente ? corClienteParaCSS(cliente.cor) : null;
 
-    overlay.innerHTML = `
-      <div class="modal-card" style="${corCliente ? `--client-color:${corCliente}` : ""}">
-        <div class="modal-card-head">
-          <div>
-            ${cliente ? `<span class="client-tag"><span class="tab-status-dot"></span>${escaparHtml(cliente.nome)}</span>` : ""}
-            <h3 style="margin:8px 0 0;">${tarefa.titulo ? escaparHtml(tarefa.titulo) : "Nova tarefa"}</h3>
-            <div class="modal-card-head-tags">
-              <span class="pill" id="pill-status-modal">${NOME_STATUS_MODAL[tarefa.status] || tarefa.status}</span>
-              ${categoria === "diaria" ? '<span class="pill">Tarefa diária</span>' : ""}
-              ${tarefa.recorrente_id ? '<span class="pill">Recorrente</span>' : ""}
-            </div>
-          </div>
-          <button type="button" class="modal-close-btn" id="btn-fechar-modal-tarefa" aria-label="Fechar" title="Fechar">✕</button>
-        </div>
+    const rotuloTipo = isPacote ? "Data comemorativa" : categoria === "diaria" ? "Tarefa diária" : "Mídia social";
+    const opcoesResponsavel = colaboradores
+      .map((c) => `<option value="${c.id}" ${c.id === tarefa.responsavel_id ? "selected" : ""}>${escaparHtml(c.nome)}${c.funcao ? ` (${escaparHtml(c.funcao)})` : ""}</option>`)
+      .join("");
+    const prop = (icone, rotulo, conteudo, extraClasse) => `
+      <div class="mt-prop ${extraClasse || ""}">
+        <span class="mt-prop-rotulo">${ICONES_MT[icone] || ""}<span>${rotulo}</span></span>
+        <div class="mt-prop-valor">${conteudo}</div>
+      </div>`;
 
-        <div class="modal-card-body">
+    const propriedades = [
+      prop(
+        "status",
+        "Status",
+        `<div class="mt-status-linha">
+          <select class="input-status-modal mt-status-select mt-status-${tarefa.status}">
+            ${Object.entries(NOME_STATUS_MODAL)
+              .map(([valor, nome]) => `<option value="${valor}" ${valor === tarefa.status ? "selected" : ""}>${nome}</option>`)
+              .join("")}
+          </select>
+          <button type="button" class="mt-status-ok" id="btn-aprovar-modal" title="Marcar como validada">✓</button>
+        </div>`
+      ),
+      prop("pessoa", "Responsável", `<select class="input-responsavel-modal mt-input"><option value="">Vazio</option>${opcoesResponsavel}</select>`),
+      isPacote
+        ? prop("calendario", "Data", `<input type="date" class="input-prazo-modal mt-input" value="${tarefa.prazo_pacote || ""}" />`)
+        : prop("calendario", "Publicação", `<input type="date" class="input-data-modal mt-input" value="${tarefa.data_publicacao || ""}" />`),
+      !isPacote ? prop("relogio", "Hora", `<input type="time" class="input-hora-modal mt-input" value="${horaVal}" />`) : "",
+      !isPacote
+        ? prop(
+            "bandeira",
+            "Pronta até",
+            `<input type="date" class="input-prazo-producao-modal mt-input" value="${tarefa.prazo_producao || ""}" title="Só preencha se precisar produzir antes do dia de publicação. A tarefa aparece no Checklist de hoje nesse prazo." />`
+          )
+        : "",
+      prop(
+        "envio",
+        "Tipo de publicação",
+        `<select class="input-tipo-modal mt-input">
+          <option value="agendada" ${tipo === "agendada" ? "selected" : ""}>Agendada</option>
+          <option value="manual" ${tipo === "manual" ? "selected" : ""}>Manual (subir na hora)</option>
+        </select>`
+      ),
+      !isPacote && !isNovo
+        ? prop(
+            "etiqueta",
+            "Tipo de demanda",
+            `<select class="input-categoria-modal mt-input">
+              <option value="social" ${categoria === "social" ? "selected" : ""}>Mídia social</option>
+              <option value="diaria" ${categoria === "diaria" ? "selected" : ""}>Tarefa diária</option>
+            </select>`
+          )
+        : "",
+      prop("link", "Referência", `<input type="url" class="input-link-referencia-modal mt-input" placeholder="Vazio" value="${escaparHtml(tarefa.link_referencia || "")}" />`),
+      prop("link", "Arte pronta (CRM)", `<input type="url" class="input-link-modal mt-input" placeholder="Vazio" value="${escaparHtml(tarefa.link || "")}" />`),
+      categoria === "social" ? prop("rede", "Redes sociais", redesSociaisCheckboxesHTML(tarefa, "input-rede-social-modal"), "mt-prop-largo") : "",
+    ].join("");
+
+    overlay.innerHTML = `
+      <div class="modal-card modal-tarefa-cu ${isNovo ? "sem-chat" : ""}" style="${corCliente ? `--client-color:${corCliente}` : ""}">
+        <div class="mt-main">
+          <div class="mt-topo">
+            <div class="mt-chips">
+              ${cliente ? `<span class="mt-chip mt-chip-cliente"><span class="mt-chip-ponto"></span>${escaparHtml(cliente.nome)}</span>` : ""}
+              <span class="mt-chip">${rotuloTipo}</span>
+              ${tarefa.recorrente_id ? '<span class="mt-chip">Recorrente</span>' : ""}
+            </div>
+            <button type="button" class="mt-fechar" id="btn-fechar-modal-tarefa" aria-label="Fechar" title="Fechar">✕</button>
+          </div>
+
+          <input type="text" class="input-titulo-modal mt-titulo" placeholder="${isNovo ? "Nome da nova tarefa" : "Nome da tarefa"}" value="${escaparHtml(tarefa.titulo || "")}" />
+
           ${
             tarefa.recorrente_id
               ? `<div class="aviso-recorrente">
@@ -172,123 +228,68 @@
               : ""
           }
 
-          <div class="field">
-            <label>Status</label>
-            <select class="input-status-modal">
-              ${Object.entries(NOME_STATUS_MODAL)
-                .map(([valor, nome]) => `<option value="${valor}" ${valor === tarefa.status ? "selected" : ""}>${nome}</option>`)
-                .join("")}
-            </select>
-          </div>
+          <div class="mt-props">${propriedades}</div>
 
-          <div class="field">
-            <label>Tarefa</label>
-            <input type="text" class="input-titulo-modal" value="${escaparHtml(tarefa.titulo || "")}" />
-          </div>
-          <div class="field">
-            <label>Descrição (o que é e como deve ser feito)</label>
-            <textarea class="input-descricao-modal" rows="3" placeholder="Opcional">${escaparHtml(tarefa.descricao || "")}</textarea>
-          </div>
-          ${
-            !isPacote && isNovo
-              ? `<p class="field-hint">Essa tarefa nasce como mídia social (é só por aqui, pelos cards de cima, que dá pra criar uma -- tarefas diárias continuam sendo criadas lá embaixo, na seção de tarefas diárias).</p>`
-              : ""
-          }
           ${
             !isPacote && isNovo && tarefa.bloco
-              ? `<div class="field">
-                  <label class="checkbox-label"><input type="checkbox" class="input-recorrente-modal" /> Repetir toda ${NOME_DIA_MODAL[tarefa.bloco] || tarefa.bloco} (entra sozinha nas próximas semanas)</label>
-                </div>`
+              ? `<label class="checkbox-label mt-recorrente"><input type="checkbox" class="input-recorrente-modal" /> Repetir toda ${NOME_DIA_MODAL[tarefa.bloco] || tarefa.bloco}</label>`
               : ""
           }
-          ${
-            !isPacote && !isNovo
-              ? `<div class="field">
-                  <label>Tipo de demanda</label>
-                  <select class="input-categoria-modal">
-                    <option value="social" ${categoria === "social" ? "selected" : ""}>Mídia social</option>
-                    <option value="diaria" ${categoria === "diaria" ? "selected" : ""}>Tarefa diária</option>
-                  </select>
-                  <p class="field-hint">Mídia social entra no progresso da semana. Tarefa diária entra só no progresso do dia.</p>
-                </div>`
-              : ""
-          }
-          <div class="grid-2">
-            <div class="field">
-              <label>Tipo de publicação</label>
-              <select class="input-tipo-modal">
-                <option value="agendada" ${tipo === "agendada" ? "selected" : ""}>Agendada</option>
-                <option value="manual" ${tipo === "manual" ? "selected" : ""}>Manual (subir na hora)</option>
-              </select>
-            </div>
-            ${
-              categoria === "social"
-                ? `<div class="field">
-                    <label>Rede social</label>
-                    ${redesSociaisCheckboxesHTML(tarefa, "input-rede-social-modal")}
-                    <p class="field-hint">Pode marcar mais de uma, se a mesma publicação for pra vários lugares.</p>
-                  </div>`
-                : `<div class="field">
-                    <label>Responsável</label>
-                    <select class="input-responsavel-modal">
-                      <option value="">Sem responsável definido</option>
-                      ${colaboradores
-                        .map((c) => `<option value="${c.id}" ${c.id === tarefa.responsavel_id ? "selected" : ""}>${escaparHtml(c.nome)}${c.funcao ? ` (${escaparHtml(c.funcao)})` : ""}</option>`)
-                        .join("")}
-                    </select>
-                  </div>`
-            }
-          </div>
-          ${
-            categoria === "social"
-              ? `<div class="field">
-                  <label>Responsável</label>
-                  <select class="input-responsavel-modal">
-                    <option value="">Sem responsável definido</option>
-                    ${colaboradores
-                      .map((c) => `<option value="${c.id}" ${c.id === tarefa.responsavel_id ? "selected" : ""}>${escaparHtml(c.nome)}${c.funcao ? ` (${escaparHtml(c.funcao)})` : ""}</option>`)
-                      .join("")}
-                  </select>
-                </div>`
-              : ""
-          }
-          <div class="field">
-            <label>Link do modelo de referência</label>
-            <input type="url" class="input-link-referencia-modal" placeholder="https://..." value="${escaparHtml(tarefa.link_referencia || "")}" />
-            <p class="field-hint">O modelo/referência a seguir pra produzir essa publicação.</p>
-          </div>
-          <div class="field">
-            <label>Link (arte pronta no CRM)</label>
-            <input type="url" class="input-link-modal" placeholder="https://..." value="${escaparHtml(tarefa.link || "")}" />
-          </div>
-          ${
-            isPacote
-              ? `<div class="field"><label>Prazo do pacote</label><input type="date" class="input-prazo-modal" value="${tarefa.prazo_pacote || ""}" /></div>`
-              : `<div class="grid-2">
-                  <div class="field"><label>Data de publicação/entrega</label><input type="date" class="input-data-modal" value="${tarefa.data_publicacao || ""}" /></div>
-                  <div class="field"><label>Hora</label><input type="time" class="input-hora-modal" value="${horaVal}" /></div>
-                </div>
-                <div class="field">
-                  <label>Prazo para ficar pronta</label>
-                  <input type="date" class="input-prazo-producao-modal" value="${tarefa.prazo_producao || ""}" />
-                  <p class="field-hint">Só preenche se precisar produzir ANTES do dia de publicação/entrega -- aí a tarefa aparece no Checklist de hoje nesse prazo, mesmo publicando depois.</p>
-                </div>`
-          }
+
+          <div class="mt-secao">Descrição</div>
+          <textarea class="input-descricao-modal mt-descricao" rows="4" placeholder="Adicione uma descrição: o que é e como deve ser feito">${escaparHtml(tarefa.descricao || "")}</textarea>
 
           <p class="form-msg" id="msg-modal-tarefa"></p>
+
+          <div class="mt-acoes">
+            ${!isNovo ? `<button type="button" class="btn btn-perigo-ghost" id="btn-excluir-modal-tarefa">Excluir</button>` : ""}
+            ${
+              !isNovo && !isPacote && tarefa.week_id
+                ? `<button type="button" class="btn btn-ghost" id="btn-duplicar-modal-tarefa" title="Copiar essa tarefa pra próxima semana, no mesmo dia">Duplicar</button>`
+                : ""
+            }
+            <button type="button" class="btn btn-primary" id="btn-salvar-modal-tarefa" style="margin-left:auto;">${isNovo ? "Criar tarefa" : "Salvar alterações"}</button>
+          </div>
         </div>
 
-        <div class="modal-card-footer">
-          ${!isNovo ? `<button type="button" class="btn btn-perigo-ghost" id="btn-excluir-modal-tarefa">Excluir tarefa</button>` : ""}
-          ${
-            !isNovo && !isPacote && tarefa.week_id
-              ? `<button type="button" class="btn btn-ghost" id="btn-duplicar-modal-tarefa" title="Copiar essa tarefa pra próxima semana, no mesmo dia">Duplicar</button>`
-              : ""
-          }
-          <button type="button" class="btn btn-primary" id="btn-salvar-modal-tarefa" style="margin-left:auto;">${isNovo ? "Criar tarefa" : "Salvar alterações"}</button>
-        </div>
+        ${
+          !isNovo
+            ? `<aside class="mt-chat">
+                <div class="mt-chat-topo">
+                  <strong>Comentários</strong>
+                  ${tarefa.created_at ? `<span>Criada em ${formatarDataHoraChat(tarefa.created_at, true)}</span>` : ""}
+                </div>
+                <div class="mt-chat-lista" id="mt-chat-lista"><div class="mt-chat-carregando">Carregando...</div></div>
+                <div class="mt-chat-composer">
+                  <div class="mt-chat-autor">
+                    <span>Comentando como</span>
+                    <select id="mt-chat-autor">
+                      <option value="">Equipe</option>
+                      ${colaboradores.map((c) => `<option value="${c.id}">${escaparHtml(c.nome)}</option>`).join("")}
+                    </select>
+                  </div>
+                  <div class="mt-chat-caixa">
+                    <textarea id="mt-chat-texto" rows="2" placeholder="Escreva um comentário"></textarea>
+                    <button type="button" class="mt-chat-enviar" id="mt-chat-enviar" title="Enviar (Enter)">${ICONES_MT.enviar}</button>
+                  </div>
+                </div>
+              </aside>`
+            : ""
+        }
       </div>
     `;
+
+    if (!isNovo) ligarChat(tarefa, colaboradores);
+
+    const btnAprovarModal = document.getElementById("btn-aprovar-modal");
+    if (btnAprovarModal) {
+      btnAprovarModal.addEventListener("click", () => {
+        const sel = overlay.querySelector(".input-status-modal");
+        if (sel.value === "validada") return;
+        sel.value = "validada";
+        sel.dispatchEvent(new Event("change"));
+      });
+    }
 
     document.getElementById("btn-fechar-modal-tarefa").addEventListener("click", fecharModalTarefa);
 
@@ -298,8 +299,7 @@
       // for clicado.
       if (isNovo) {
         tarefa.status = ev.target.value;
-        const pillStatusNovo = document.getElementById("pill-status-modal");
-        if (pillStatusNovo) pillStatusNovo.textContent = NOME_STATUS_MODAL[tarefa.status] || tarefa.status;
+        ev.target.className = `input-status-modal mt-status-select mt-status-${tarefa.status}`;
         return;
       }
       const { error } = await window.supabaseClient.from("demandas").update({ status: ev.target.value }).eq("id", tarefa.id);
@@ -308,8 +308,7 @@
         return;
       }
       tarefa.status = ev.target.value;
-      const pillStatus = document.getElementById("pill-status-modal");
-      if (pillStatus) pillStatus.textContent = NOME_STATUS_MODAL[tarefa.status] || tarefa.status;
+      ev.target.className = `input-status-modal mt-status-select mt-status-${tarefa.status}`;
       mostrarMsgModal("Status atualizado.", false);
       if (aoMudarAtual) aoMudarAtual();
     });
@@ -483,6 +482,126 @@
       fecharModalTarefa();
       if (aoMudarAtual) aoMudarAtual();
     }
+  }
+
+  // Ícones (traço fino, estilo ClickUp) usados nos rótulos das propriedades.
+  const svg = (d) => `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+  const ICONES_MT = {
+    status: svg('<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/>'),
+    pessoa: svg('<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/>'),
+    calendario: svg('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/>'),
+    relogio: svg('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'),
+    bandeira: svg('<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>'),
+    envio: svg('<path d="M4 12l16-8-6 16-2-7-8-1z"/>'),
+    etiqueta: svg('<path d="M20 12l-8 8-9-9V3h8z"/><circle cx="7.5" cy="7.5" r="1.5"/>'),
+    link: svg('<path d="M10 14a4 4 0 0 0 5.6 0l3-3a4 4 0 0 0-5.6-5.6l-1 1"/><path d="M14 10a4 4 0 0 0-5.6 0l-3 3a4 4 0 0 0 5.6 5.6l1-1"/>'),
+    rede: svg('<circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M8.2 11l7.6-3.8M8.2 13l7.6 3.8"/>'),
+    enviar: '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M3.4 20.4l17.5-7.5a1 1 0 0 0 0-1.8L3.4 3.6a1 1 0 0 0-1.4 1.1L4 11l9 1-9 1-2 6.3a1 1 0 0 0 1.4 1.1z"/></svg>',
+  };
+
+  function formatarDataHoraChat(iso, soData) {
+    const d = new Date(iso);
+    if (isNaN(d)) return "";
+    const dia = String(d.getDate()).padStart(2, "0");
+    const mes = String(d.getMonth() + 1).padStart(2, "0");
+    if (soData) return `${dia}/${mes}/${d.getFullYear()}`;
+    const hora = String(d.getHours()).padStart(2, "0");
+    const min = String(d.getMinutes()).padStart(2, "0");
+    return `${dia}/${mes} às ${hora}:${min}`;
+  }
+
+  function iniciaisChat(nome) {
+    if (typeof inicialAvatar === "function") return inicialAvatar(nome);
+    return (nome || "?").trim().slice(0, 2).toUpperCase();
+  }
+
+  // Chat da tarefa (igual aos comentários do ClickUp): cada comentário é
+  // uma linha da tabela "comentarios" (data/comentarios.json), ligada à
+  // tarefa por demanda_id. O "Comentando como" fica salvo no navegador.
+  function ligarChat(tarefa, colaboradores) {
+    const lista = document.getElementById("mt-chat-lista");
+    const texto = document.getElementById("mt-chat-texto");
+    const btnEnviar = document.getElementById("mt-chat-enviar");
+    const selAutor = document.getElementById("mt-chat-autor");
+    if (!lista || !texto || !btnEnviar || !selAutor) return;
+
+    let autorSalvo = "";
+    try {
+      autorSalvo = localStorage.getItem("comentario_autor_id") || "";
+    } catch (e) {}
+    if (autorSalvo && colaboradores.some((c) => c.id === autorSalvo)) selAutor.value = autorSalvo;
+    selAutor.addEventListener("change", () => {
+      try {
+        localStorage.setItem("comentario_autor_id", selAutor.value);
+      } catch (e) {}
+    });
+
+    let comentarios = [];
+
+    function render() {
+      if (!comentarios.length) {
+        lista.innerHTML = `
+          <div class="mt-chat-vazio">
+            <strong>Envie o primeiro comentário</strong>
+            <span>Faça uma pergunta, deixe uma atualização ou um ajuste pedido pelo cliente.</span>
+          </div>`;
+        return;
+      }
+      lista.innerHTML = comentarios
+        .map((c) => {
+          const nome = c.autor_nome || "Equipe";
+          return `
+            <div class="mt-comentario">
+              <span class="mt-comentario-avatar">${escaparHtml(iniciaisChat(nome))}</span>
+              <div class="mt-comentario-corpo">
+                <div class="mt-comentario-topo"><strong>${escaparHtml(nome)}</strong><span>${formatarDataHoraChat(c.created_at)}</span></div>
+                <div class="mt-comentario-texto">${escaparHtml(c.texto).replace(/\n/g, "<br>")}</div>
+              </div>
+            </div>`;
+        })
+        .join("");
+      lista.scrollTop = lista.scrollHeight;
+    }
+
+    (async () => {
+      const { data, error } = await window.supabaseClient.from("comentarios").select("*").eq("demanda_id", tarefa.id).order("created_at");
+      if (error) {
+        lista.innerHTML = `<div class="mt-chat-vazio"><span>Não consegui carregar os comentários: ${escaparHtml(error.message)}</span></div>`;
+        return;
+      }
+      comentarios = data || [];
+      render();
+    })();
+
+    async function enviar() {
+      const conteudo = texto.value.trim();
+      if (!conteudo || btnEnviar.disabled) return;
+      btnEnviar.disabled = true;
+      const autor = colaboradores.find((c) => c.id === selAutor.value);
+      const { data, error } = await window.supabaseClient.from("comentarios").insert({
+        demanda_id: tarefa.id,
+        client_id: tarefa.client_id || null,
+        autor_id: autor ? autor.id : null,
+        autor_nome: autor ? autor.nome : "Equipe",
+        texto: conteudo,
+      });
+      btnEnviar.disabled = false;
+      if (error) {
+        mostrarMsgModal("Erro ao enviar comentário: " + error.message, true);
+        return;
+      }
+      comentarios = comentarios.concat(data || []);
+      texto.value = "";
+      render();
+    }
+
+    btnEnviar.addEventListener("click", enviar);
+    texto.addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter" && !ev.shiftKey) {
+        ev.preventDefault();
+        enviar();
+      }
+    });
   }
 
   function mostrarMsgModal(texto, erro) {
