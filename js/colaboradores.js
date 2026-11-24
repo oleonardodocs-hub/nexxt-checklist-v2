@@ -37,12 +37,14 @@ async function carregarColaboradores() {
       .map(
         (c) => `
       <div class="demanda-item" data-id="${c.id}">
-        <div class="demanda-title">
+        <div class="demanda-title colaborador-linha">
+          <span class="colaborador-avatar">${conteudoAvatarHTML(c)}</span>
           ${escapeHtml(c.nome)}
           ${!c.ativo ? '<span class="pill pill-pendente">Inativo</span>' : ""}
         </div>
         ${c.funcao ? `<div class="demanda-meta">${escapeHtml(c.funcao)}</div>` : ""}
         <div class="demanda-controls">
+          <button class="btn btn-ghost" data-acao="foto" data-id="${c.id}" data-foto="${escapeHtml(c.foto || "")}">${c.foto ? "Trocar foto" : "Adicionar foto"}</button>
           <button class="btn btn-ghost" data-acao="toggle-ativo" data-id="${c.id}" data-ativo="${c.ativo}">${c.ativo ? "Desativar" : "Ativar"}</button>
           <button class="btn btn-ghost" data-acao="excluir" data-id="${c.id}" style="margin-left:auto;">Excluir</button>
         </div>
@@ -58,6 +60,25 @@ async function carregarColaboradores() {
       const { error } = await window.supabaseClient
         .from("colaboradores")
         .update({ ativo: !ativo })
+        .eq("id", btn.dataset.id);
+      if (error) {
+        mostrarToast("Erro: " + error.message);
+        return;
+      }
+      await carregarColaboradores();
+    });
+  });
+
+  // Foto: link de uma imagem (ou caminho dentro do app, ex.:
+  // assets/colaboradores/nome.jpg). Vazio volta pras iniciais.
+  el.querySelectorAll('[data-acao="foto"]').forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const atual = btn.dataset.foto || "";
+      const nova = prompt("Cole o link da foto (deixe vazio para usar as iniciais):", atual);
+      if (nova === null) return;
+      const { error } = await window.supabaseClient
+        .from("colaboradores")
+        .update({ foto: nova.trim() || null })
         .eq("id", btn.dataset.id);
       if (error) {
         mostrarToast("Erro: " + error.message);

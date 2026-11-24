@@ -15,10 +15,10 @@
   --border-hairline:  rgba(11, 11, 11, 0.10);
   --gridline:         #e1e0d9;
 
-  --accent:           #6250d6; /* categorical slot 7 (violeta), identidade visual do painel */
-  --accent-dark:      #46369e;
-  --accent-track:     #e1dbf9; /* trilho do medidor, tom claro do próprio acento */
-  --accent-soft:      #f1eefc;
+  --accent:           #2563eb; /* azul único do sistema (mesmo dos cards dos dias) */
+  --accent-dark:      #1d4ed8;
+  --accent-track:     #dbe7ff; /* trilho do medidor, tom claro do próprio acento */
+  --accent-soft:      #eef4ff;
 
   --status-good:      #0ca30c;
   --status-warning:   #fab219;
@@ -53,10 +53,10 @@
     --border-hairline:  rgba(255, 255, 255, 0.10);
     --gridline:         #2c2c2a;
 
-    --accent:           #9085e9;
-    --accent-dark:      #6250d6;
-    --accent-track:     #332a5e;
-    --accent-soft:      #211c3d;
+    --accent:           #4f8ff7;
+    --accent-dark:      #93c5fd;
+    --accent-track:     #1e2f52;
+    --accent-soft:      #15223d;
 
     --status-good:      #0ca30c;
     --status-warning:   #fab219;
@@ -86,10 +86,10 @@
   --border-hairline:  rgba(255, 255, 255, 0.10);
   --gridline:         #2c2c2a;
 
-  --accent:           #9085e9;
-  --accent-dark:      #6250d6;
-  --accent-track:     #332a5e;
-  --accent-soft:      #211c3d;
+  --accent:           #4f8ff7;
+  --accent-dark:      #93c5fd;
+  --accent-track:     #1e2f52;
+  --accent-soft:      #15223d;
 
   --status-good:      #0ca30c;
   --status-warning:   #fab219;
@@ -595,46 +595,49 @@ a { color: inherit; }
   font-weight: 700;
   opacity: 0.75;
 }
-.week-tab .tab-status-dot { background: var(--accent-track); }
+.week-tab { transition: background .15s ease, color .15s ease, border-color .15s ease; }
+.week-tab:hover:not(.active) { color: var(--text-primary); border-color: color-mix(in srgb, var(--accent) 35%, transparent); }
+.week-tab .tab-status-dot { display: none; }
+.week-tab.is-atual .tab-status-dot,
+.week-tab.is-atrasada .tab-status-dot { display: inline-block; }
+.week-tab.is-atual .tab-status-dot { background: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
+.week-tab.is-atrasada .tab-status-dot { background: var(--status-critical); box-shadow: none; }
+.week-tab.is-atual:not(.active) { color: var(--text-primary); font-weight: 600; }
 .week-tab-check {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
   margin-right: 6px;
   border-radius: 999px;
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 800;
   color: #ffffff;
   background: #10a37f;
 }
-.week-tab-atual {
-  margin-left: 6px;
-  padding: 1px 7px;
-  border-radius: 999px;
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  color: #2563eb;
-  background: color-mix(in srgb, #3b82f6 14%, transparent);
+.week-tab.active {
+  color: #ffffff;
+  font-weight: 600;
+  border-color: transparent;
+  background: linear-gradient(180deg, #4f8ff7 0%, #2563eb 100%);
+  box-shadow: 0 6px 14px rgba(37, 99, 235, 0.25);
 }
-.week-tab.is-atual { font-weight: 700; color: var(--text-primary); border: 1.5px solid #3b82f6; }
-.week-tab.is-atual .tab-status-dot { background: #3b82f6; }
+.week-tab.active .tab-status-dot { background: #ffffff; box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.3); }
+.week-tab.active .week-tab-progresso { opacity: 0.8; }
 .week-tab.is-finalizada:not(.active) {
   color: #0d7a5f;
-  background: color-mix(in srgb, #10a37f 12%, var(--surface-1));
-  border-color: color-mix(in srgb, #10a37f 45%, transparent);
+  background: color-mix(in srgb, #10a37f 10%, var(--surface-1));
+  border-color: color-mix(in srgb, #10a37f 25%, transparent);
 }
+.week-tab.active.is-finalizada { background: linear-gradient(180deg, #2cc19b 0%, #10a37f 100%); box-shadow: 0 6px 14px rgba(16, 163, 127, 0.25); }
+.week-tab.active.is-finalizada .week-tab-check { background: #ffffff; color: #10a37f; }
 .week-tab.is-atrasada:not(.active) {
   color: var(--status-critical);
-  background: color-mix(in srgb, var(--status-critical) 9%, var(--surface-1));
-  border-color: color-mix(in srgb, var(--status-critical) 45%, transparent);
+  background: color-mix(in srgb, var(--status-critical) 8%, var(--surface-1));
+  border-color: color-mix(in srgb, var(--status-critical) 25%, transparent);
 }
-.week-tab.is-atrasada .tab-status-dot { background: var(--status-critical); }
-.week-tab.active .week-tab-atual { color: #ffffff; background: rgba(255, 255, 255, 0.22); }
-.week-tab.active.is-finalizada { background: #10a37f; border-color: #10a37f; }
+:root[data-theme="dark"] .week-tab.is-finalizada:not(.active) { color: #4fd1b5; }
 .semana-foco-botoes { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 
 /* Semana em foco: um bloco só, no mesmo estilo do calendário (fundo
@@ -2784,7 +2787,6 @@ button.mini-cal-dia:hover {
 }
 :root[data-theme="dark"] .dia-card-vazio .dia-card-pilula,
 :root[data-theme="dark"] .dia-card-vazio .dia-card-icone { background: rgba(59, 130, 246, 0.18); color: #bfdbfe; }
-:root[data-theme="dark"] .week-tab.is-finalizada:not(.active) { color: #4fd1b5; }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) .dia-card-vazio .dia-card-topo-azul {
     color: #93c5fd;
@@ -2793,3 +2795,31 @@ button.mini-cal-dia:hover {
 }
 .rede-toggle .rede-icone img { width: 14px; height: 14px; }
 .rede-toggle .rede-icone-tiktok { background: #111111; }
+
+/* Foto do colaborador nos avatares (iniciais quando não tiver foto). */
+.avatar-foto {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 999px;
+  display: block;
+}
+.dia-card-avatar, .demanda-chip-avatar, .mt-responsavel-avatar,
+.mt-comentario-avatar, .responsavel-selo-avatar, .colaborador-avatar { overflow: hidden; }
+.dia-card-avatar { width: 26px; height: 26px; }
+.mt-responsavel-avatar { width: 28px; height: 28px; }
+.mt-comentario-avatar { width: 30px; height: 30px; }
+.colaborador-linha { display: flex; align-items: center; gap: 10px; }
+.colaborador-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #ffffff;
+  background: var(--accent);
+}

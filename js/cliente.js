@@ -718,12 +718,11 @@ function renderWeekTabs() {
       const atrasada = semanaAtrasada(inicio);
       const ehAtual = inicio === segundaAtual;
       const classes = ["week-tab", ativo ? "active" : "", ehAtual ? "is-atual" : "", r.finalizada ? "is-finalizada" : "", atrasada ? "is-atrasada" : ""].join(" ");
-      const titulo = r.finalizada ? "Semana validada e aprovada" : atrasada ? "Semana com tarefa atrasada" : ehAtual ? "Semana atual" : "";
+      const titulo = r.finalizada ? "Semana validada e aprovada" : atrasada ? "Semana com tarefa atrasada" : ehAtual ? "Semana atual (a bolinha azul marca a semana de hoje)" : "";
       return `
         <button class="${classes}" data-semana-inicio="${inicio}" title="${titulo}">
           ${r.finalizada ? '<span class="week-tab-check">✓</span>' : '<span class="tab-status-dot"></span>'}
           ${formatarDataCurta(inicio)} a ${formatarDataCurta(addDias(inicio, 4))}
-          ${ehAtual ? '<span class="week-tab-atual">Atual</span>' : ""}
           <span class="week-tab-progresso">${r.totalAprovadas}/${DIAS_SEMANA.length}</span>
         </button>
       `;
@@ -804,7 +803,7 @@ function renderSemanaEmFoco() {
               <span class="dia-card-responsavel">
                 ${
                   colaborador
-                    ? `<span class="dia-card-avatar">${escapeHtml(inicialAvatar(colaborador.nome))}</span><span class="dia-card-responsavel-nome">${escapeHtml(colaborador.nome.split(" ")[0])}</span>`
+                    ? `<span class="dia-card-avatar">${conteudoAvatarHTML(colaborador)}</span><span class="dia-card-responsavel-nome">${escapeHtml(colaborador.nome.split(" ")[0])}</span>`
                     : `<span class="dia-card-responsavel-nome is-vazio">${principal ? "Sem responsável" : "Livre"}</span>`
                 }
               </span>
@@ -1104,7 +1103,7 @@ function renderTabelaTarefasDiarias(linhas) {
           <span class="tabela-diaria-titulo" data-abrir-tarefa-diaria="${item.id}" title="Clique para abrir e editar essa tarefa">${escapeHtml(item.titulo)}</span>
           <span class="tabela-diaria-responsavel">${
             colaborador
-              ? `<span class="demanda-chip demanda-chip-pessoa"><span class="demanda-chip-avatar">${escapeHtml(inicialAvatar(colaborador.nome))}</span>${escapeHtml(colaborador.nome)}</span>`
+              ? `<span class="demanda-chip demanda-chip-pessoa"><span class="demanda-chip-avatar">${conteudoAvatarHTML(colaborador)}</span>${escapeHtml(colaborador.nome)}</span>`
               : '<span class="tabela-diaria-vazio">—</span>'
           }</span>
           <span class="pill pill-${item.status}">${NOME_STATUS[item.status]}</span>
@@ -1802,7 +1801,7 @@ function renderDemandaItem(item, isPacote, semana) {
   const chips = [];
   if (colaborador) {
     chips.push(
-      `<span class="demanda-chip demanda-chip-pessoa"><span class="demanda-chip-avatar">${escapeHtml(inicialAvatar(colaborador.nome))}</span>${escapeHtml(colaborador.nome)}</span>`
+      `<span class="demanda-chip demanda-chip-pessoa"><span class="demanda-chip-avatar">${conteudoAvatarHTML(colaborador)}</span>${escapeHtml(colaborador.nome)}</span>`
     );
   }
   if (item.tipo_publicacao === "manual") chips.push(`<span class="demanda-chip">Manual</span>`);

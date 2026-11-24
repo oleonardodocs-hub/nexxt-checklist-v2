@@ -127,6 +127,7 @@ async function carregarDados() {
 
   const colaboradoresPorId = {};
   (colaboradores || []).forEach((c) => (colaboradoresPorId[c.id] = c.nome));
+  window._colaboradoresDashboard = colaboradores || [];
 
   ultimosClientesCarregados = clients || [];
   renderClientes(clients || [], weeks || [], demandas || [], colaboradoresPorId);
@@ -369,7 +370,7 @@ function renderChecklistHoje(lista, diaHoje, colaboradoresPorId) {
             ${item.tipo_publicacao === "manual" ? '<span class="demanda-meta">Manual</span>' : ""}
             ${
               nomeResponsavel
-                ? `<span class="responsavel-selo" title="Responsável"><span class="responsavel-selo-avatar">${escapeHtml(inicialAvatar(nomeResponsavel))}</span>${escapeHtml(nomeResponsavel)}</span>`
+                ? `<span class="responsavel-selo" title="Responsável"><span class="responsavel-selo-avatar">${conteudoAvatarHTML((window._colaboradoresDashboard || []).find((c) => c.id === item.responsavel_id), nomeResponsavel)}</span>${escapeHtml(nomeResponsavel)}</span>`
                 : '<span class="responsavel-selo responsavel-selo-vazio">Sem responsável</span>'
             }
             <button class="btn btn-primary" data-marcar-feito="${item.id}" style="margin-left:auto;">Marcar como feito</button>

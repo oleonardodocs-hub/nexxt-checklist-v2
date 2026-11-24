@@ -180,7 +180,7 @@
         "pessoa",
         "Responsável",
         `<div class="mt-responsavel">
-          <span class="mt-responsavel-avatar" id="mt-responsavel-avatar">${responsavelAtual ? escaparHtml(iniciaisChat(responsavelAtual.nome)) : "?"}</span>
+          <span class="mt-responsavel-avatar" id="mt-responsavel-avatar">${responsavelAtual ? conteudoAvatarHTML(responsavelAtual) : "?"}</span>
           <select class="input-responsavel-modal mt-input"><option value="">Vazio</option>${opcoesResponsavel}</select>
         </div>`
       ),
@@ -327,7 +327,7 @@
     const selResp = overlay.querySelector(".input-responsavel-modal");
     selResp.addEventListener("change", () => {
       const c = colaboradores.find((x) => x.id === selResp.value);
-      document.getElementById("mt-responsavel-avatar").textContent = c ? iniciaisChat(c.nome) : "?";
+      document.getElementById("mt-responsavel-avatar").innerHTML = c ? conteudoAvatarHTML(c) : "?";
     });
 
     overlay.querySelectorAll(".mt-link").forEach((box) => {
@@ -653,7 +653,7 @@
           const nome = c.autor_nome || "Equipe";
           return `
             <div class="mt-comentario">
-              <span class="mt-comentario-avatar" style="background:${corAvatar(nome)}">${escaparHtml(iniciaisChat(nome))}</span>
+              <span class="mt-comentario-avatar" style="background:${corAvatar(nome)}">${conteudoAvatarHTML(colaboradores.find((x) => x.id === c.autor_id), nome)}</span>
               <div class="mt-comentario-corpo">
                 <div class="mt-comentario-topo"><strong>${escaparHtml(nome)}</strong><span>${formatarDataHoraChat(c.created_at)}</span></div>
                 <div class="mt-comentario-texto">${escaparHtml(c.texto).replace(/\n/g, "<br>")}</div>

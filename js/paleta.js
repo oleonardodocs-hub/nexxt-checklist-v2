@@ -284,6 +284,19 @@ function anelProgressoHTML(pct, cor, tamanho, textoNoMeio) {
 
 // Iniciais de um nome (pra mostrar num avatarzinho redondo, em vez do nome
 // inteiro escrito, nos cards mais compactos).
+// Conteúdo do avatar de um colaborador: a foto (campo "foto", caminho ou
+// link da imagem) quando tiver, senão as iniciais.
+function conteudoAvatarHTML(colaborador, nomeReserva) {
+  const nome = (colaborador && colaborador.nome) || nomeReserva || "";
+  if (colaborador && colaborador.foto) {
+    const src = String(colaborador.foto).replace(/"/g, "&quot;");
+    return `<img class="avatar-foto" src="${src}" alt="" loading="lazy" />`;
+  }
+  const div = document.createElement("div");
+  div.textContent = inicialAvatar(nome);
+  return div.innerHTML;
+}
+
 function inicialAvatar(nome) {
   if (!nome) return "?";
   const partes = nome.trim().split(/\s+/).filter(Boolean);
