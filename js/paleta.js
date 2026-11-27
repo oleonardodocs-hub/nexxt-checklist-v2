@@ -110,9 +110,29 @@ function iconeRedeHTML(valor, ligada) {
 
 // Todas as redes em linha: coloridas as que vão ser publicadas, em preto e
 // branco (desligadas) as que não vão.
+// Quando a rede ligada já tem o link do post salvo, o ícone vira link e
+// abre a publicação numa aba nova.
 function linhaRedesHTML(item) {
   const marcadas = new Set(listaRedesSociais(item));
-  return window.REDES_SOCIAIS_LISTA.map((r) => iconeRedeHTML(r.valor, marcadas.has(r.valor))).join("");
+  const links = linksPublicacao(item);
+  return window.REDES_SOCIAIS_LISTA.map((r) => {
+    const ligada = marcadas.has(r.valor);
+    const url = ligada ? links[r.valor] : "";
+    if (url) {
+      return `<a class="rede-icone rede-icone-${r.valor} is-on rede-icone-link" href="${escaparAtributoRede(url)}" target="_blank" rel="noopener" title="Abrir publicação no ${nomeDeRedeSocial(r.valor)}"><img src="assets/redes/${r.valor}.png" alt="${nomeDeRedeSocial(r.valor)}" /></a>`;
+    }
+    return iconeRedeHTML(r.valor, ligada);
+  }).join("");
+}
+
+// Links dos posts publicados, um por rede: { instagram: "https://...", ... }.
+function linksPublicacao(item) {
+  const v = item && item.links_publicacao;
+  return v && typeof v === "object" ? v : {};
+}
+
+function escaparAtributoRede(t) {
+  return String(t).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
 // Versão clicável (modal): cada ícone é um checkbox escondido. Usa a mesma

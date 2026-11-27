@@ -223,13 +223,14 @@
       ),
       prop(
         "link",
-        "Arte pronta (CRM)",
+        "Material pronto",
         `<div class="mt-link">
-          <input type="url" class="input-link-modal mt-input" placeholder="Cole o link" value="${escaparHtml(tarefa.link || "")}" />
+          <input type="url" class="input-link-modal mt-input" placeholder="Link do CRM ou Drive" value="${escaparHtml(tarefa.link || "")}" />
           <a class="mt-link-abrir" href="${escaparHtml(tarefa.link || "#")}" target="_blank" rel="noopener" style="${tarefa.link ? "" : "display:none"}">Abrir ↗</a>
         </div>`
       ),
       categoria === "social" ? prop("rede", "Redes sociais", redesSociaisIconesToggleHTML(tarefa, "input-rede-social-modal"), "mt-prop-largo") : "",
+      categoria === "social" ? prop("link", "Links da publicação", `<div class="mt-links-pub" id="mt-links-pub"></div>`, "mt-prop-largo") : "",
     ].join("");
 
     overlay.innerHTML = `
@@ -330,7 +331,45 @@
       document.getElementById("mt-responsavel-avatar").innerHTML = c ? conteudoAvatarHTML(c) : "?";
     });
 
-    overlay.querySelectorAll(".mt-link").forEach((box) => {
+    // Um campo de link por rede ligada (histórico de onde o post foi
+    // publicado). Guarda o que já foi digitado mesmo se a rede for desligada
+    // e ligada de novo antes de salvar.
+    const linksDigitados = Object.assign({}, typeof linksPublicacao === "function" ? linksPublicacao(tarefa) : {});
+    const boxLinksPub = overlay.querySelector("#mt-links-pub");
+    function renderLinksPub() {
+      if (!boxLinksPub) return;
+      const ligadas = (obterRedesSociaisMarcadas(overlay, "input-rede-social-modal") || "").split(",").filter(Boolean);
+      if (!ligadas.length) {
+        boxLinksPub.innerHTML = `<span class="mt-links-pub-vazio">Ligue uma rede acima para colar o link do post.</span>`;
+        return;
+      }
+      boxLinksPub.innerHTML = ligadas
+        .map((rede) => {
+          const url = linksDigitados[rede] || "";
+          const ok = /^https?:\/\//i.test(url);
+          return `
+            <div class="mt-link mt-link-pub" data-rede="${rede}">
+              <span class="rede-icone rede-icone-${rede}"><img src="assets/redes/${rede}.png" alt="" /></span>
+              <input type="url" class="mt-input input-link-pub" placeholder="Link do post no ${nomeDeRedeSocial(rede)}" value="${escaparHtml(url)}" />
+              <a class="mt-link-abrir" href="${ok ? escaparHtml(url) : "#"}" target="_blank" rel="noopener" style="${ok ? "" : "display:none"}">Abrir ↗</a>
+            </div>`;
+        })
+        .join("");
+      boxLinksPub.querySelectorAll(".mt-link-pub").forEach((linha) => {
+        const input = linha.querySelector("input");
+        const link = linha.querySelector(".mt-link-abrir");
+        input.addEventListener("input", () => {
+          const v = input.value.trim();
+          linksDigitados[linha.dataset.rede] = v;
+          link.style.display = /^https?:\/\//i.test(v) ? "" : "none";
+          link.href = v || "#";
+        });
+      });
+    }
+    renderLinksPub();
+    overlay.querySelectorAll(".input-rede-social-modal input").forEach((cb) => cb.addEventListener("change", renderLinksPub));
+
+    overlay.querySelectorAll(".mt-link:not(.mt-link-pub)").forEach((box) => {
       const input = box.querySelector("input");
       const link = box.querySelector(".mt-link-abrir");
       input.addEventListener("input", () => {
@@ -480,7 +519,16 @@
       };
       const inputCategoria = overlay.querySelector(".input-categoria-modal");
       if (inputCategoria) payload.categoria = inputCategoria.value;
-      if (overlay.querySelector(".input-rede-social-modal")) payload.rede_social = obterRedesSociaisMarcadas(overlay, "input-rede-social-modal");
+      if (overlay.querySelector(".input-rede-social-modal")) {
+        payload.rede_social = obterRedesSociaisMarcadas(overlay, "input-rede-social-modal");
+        const ligadas = (payload.rede_social || "").split(",").filter(Boolean);
+        const links = {};
+        ligadas.forEach((r) => {
+          const v = (linksDigitados[r] || "").trim();
+          if (v) links[r] = v;
+        });
+        payload.links_publicacao = Object.keys(links).length ? links : null;
+      }
       const inputData = overlay.querySelector(".input-data-modal");
       const inputHora = overlay.querySelector(".input-hora-modal");
       const inputPrazo = overlay.querySelector(".input-prazo-modal");

@@ -2434,20 +2434,39 @@ button.mini-cal-dia:hover {
 }
 .mt-prop {
   display: grid;
-  grid-template-columns: 150px minmax(0, 1fr);
+  grid-template-columns: 170px minmax(0, 1fr);
   align-items: center;
   gap: 8px;
-  min-height: 38px;
+  min-height: 42px;
 }
-.mt-prop-largo { grid-column: 1 / -1; grid-template-columns: 150px minmax(0, 1fr); }
+.mt-prop-largo { grid-column: 1 / -1; grid-template-columns: 170px minmax(0, 1fr); align-items: start; }
+.mt-prop-largo .mt-prop-rotulo { margin-top: 6px; }
+/* Rótulo das propriedades em formato de botãozinho, no mesmo estilo
+   das etapas do topo, pra destacar Status, Responsável etc. */
 .mt-prop-rotulo {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: var(--text-muted);
+  justify-self: start;
+  gap: 7px;
+  padding: 5px 12px 5px 6px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+  background: var(--accent-soft);
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
 }
-.mt-prop-rotulo svg { flex-shrink: 0; }
+.mt-prop-rotulo svg {
+  flex-shrink: 0;
+  box-sizing: content-box;
+  padding: 3px;
+  border-radius: 999px;
+  color: #ffffff;
+  background: linear-gradient(180deg, #4f8ff7 0%, #2563eb 100%);
+  width: 12px;
+  height: 12px;
+}
 .mt-prop-valor { min-width: 0; }
 .mt-input {
   width: 100%;
@@ -2823,3 +2842,20 @@ button.mini-cal-dia:hover {
   color: #ffffff;
   background: var(--accent);
 }
+
+/* Links da publicação, um por rede ligada */
+.mt-links-pub { display: flex; flex-direction: column; gap: 6px; padding: 4px 0; }
+.mt-link-pub {
+  padding: 3px 6px 3px 4px;
+  border-radius: 10px;
+  border: 1px solid var(--border-hairline);
+  background: var(--surface-2);
+}
+.mt-link-pub .rede-icone { width: 26px; height: 26px; box-shadow: none; }
+.mt-link-pub .rede-icone img { width: 15px; height: 15px; }
+.mt-link-pub .rede-icone-tiktok { background: #111111; }
+.mt-links-pub-vazio { font-size: 12.5px; color: var(--text-muted); padding: 6px 2px; }
+
+/* Ícone da rede no card com link do post salvo */
+a.rede-icone-link { cursor: pointer; transition: transform .12s ease; }
+a.rede-icone-link:hover { transform: translateY(-2px) scale(1.08); position: relative; z-index: 2; }
